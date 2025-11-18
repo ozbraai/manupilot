@@ -1,3 +1,4 @@
+import ChatWidget from '@/components/ChatWidget';
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -393,6 +394,7 @@ export default function Home() {
         onClose={() => setShowRegister(false)}
         onAuthSuccess={handleAuthSuccess}
       />
+      <ChatWidget />
     </>
   );
 }
