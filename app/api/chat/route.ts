@@ -4,36 +4,62 @@ export async function POST(req: Request) {
   try {
     const { message } = await req.json();
 
-    const apiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    // Debug logs – will appear in your terminal when running `npm run dev`
+    console.log('Chat route called. Message:', message);
+    console.log('Has OPENAI_API_KEY?', !!apiKey);
+
+    if (!apiKey) {
+      console.error('OPENAI_API_KEY is missing or not loaded');
+      return NextResponse.json(
+        { reply: 'The AI service is not configured yet.' },
+        { status: 500 }
+      );
+    }
+
+    const apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: 'gpt-4o-mini', // this model name is fine; we can change later if needed
         messages: [
           {
-            role: "system",
+            role: 'system',
             content:
-              "You are ManuBot, the friendly assistant for ManuPilot. Answer questions about product creation, sourcing, manufacturing and the ManuPilot platform.",
+              'You are ManuBot, the friendly assistant for ManuPilot. Answer questions about product creation, sourcing, manufacturing, shipping, and how ManuPilot works. Be concise and helpful.',
           },
           {
-            role: "user",
+            role: 'user',
             content: message,
           },
         ],
       }),
     });
 
+    if (!apiRes.ok) {
+      const errorText = await apiRes.text();
+      console.error('OpenAI API error:', apiRes.status, errorText);
+      return NextResponse.json(
+        { reply: 'I had trouble talking to the AI service.' },
+        { status: 500 }
+      );
+    }
+
     const data = await apiRes.json();
+
     const reply =
-      data.choices?.[0]?.message?.content || "Sorry, I had trouble answering.";
+      data?.choices?.[0]?.message?.content?.trim() ??
+      'I am not sure how to answer that, but I can help you think through your product idea.';
 
     return NextResponse.json({ reply });
-  } catch (error) {
+  } catch (err) {
+    console.error('Chat route unexpected error:', err);
     return NextResponse.json(
-      { reply: "Server error, please try again." },
+      { reply: 'Unexpected server error, please try again.' },
       { status: 500 }
     );
   }

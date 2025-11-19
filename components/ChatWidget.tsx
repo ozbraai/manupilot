@@ -13,26 +13,39 @@ export default function ChatWidget() {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMsg = input;
-    setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
+    const userText = input;
+    setMessages((prev) => [...prev, { role: 'user', text: userText }]);
     setInput('');
     setLoading(true);
 
-    // send message to our API
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({ message: userMsg }),
-    });
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userText }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    setMessages((prev) => [...prev, { role: 'bot', text: data.reply }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'bot', text: data.reply || 'I had trouble answering.' },
+      ]);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'bot', text: 'Something went wrong, please try again.' },
+      ]);
+    }
+
     setLoading(false);
   };
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Chat Button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -57,7 +70,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 p-3 overflow-y-auto space-y-2 text-sm">
+          <div className="flex-1 p-3 overflow-y-auto space-y-2 text-sm bg-white">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
@@ -78,7 +91,7 @@ export default function ChatWidget() {
             )}
           </div>
 
-          {/* Input Bar */}
+          {/* Input */}
           <div className="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
             <input
               value={input}
@@ -89,7 +102,7 @@ export default function ChatWidget() {
             />
             <button
               onClick={sendMessage}
-              className="px-3 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-500 transition"
+              className="px-3 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-500 transition disabled:opacity-60"
               disabled={loading}
             >
               Send

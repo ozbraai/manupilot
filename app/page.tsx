@@ -1,11 +1,9 @@
-import ChatWidget from '@/components/ChatWidget';
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { LoginModal } from '@/components/LoginModal';
+import ChatWidget from '@/components/ChatWidget';
 import { RegisterModal } from '@/components/RegisterModal';
 
 function FadeInSection({
@@ -53,108 +51,39 @@ function FadeInSection({
 export default function Home() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
 
-  const [showLogin, setShowLogin] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
-
-  const [creating, setCreating] = useState(false);
-  const [createMessage, setCreateMessage] = useState<string | null>(null);
-
-  // check if user is logged in for navbar
   useEffect(() => {
     async function loadUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       setUserEmail(user?.email ?? null);
-      setLoadingUser(false);
     }
-
     loadUser();
   }, []);
 
-  async function handleQuickTestProject() {
-    setCreating(true);
-    setCreateMessage(null);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setCreateMessage('You need to log in first.');
-      setCreating(false);
-      return;
-    }
-
-    const { error } = await supabase.from('projects').insert({
-      title: 'Quick ManuPilot test project',
-      description: 'Created from the homepage button',
-      user_id: user.id,
-    });
-
-    if (error) {
-      setCreateMessage('Something went wrong saving to Supabase.');
-    } else {
-      setCreateMessage('Project saved to Supabase successfully.');
-    }
-
-    setCreating(false);
+  async function handleStartProject() {
+    // keep as-is or extend later
+    router.push('/dashboard');
   }
 
-  function handleAuthSuccess(email: string | null) {
+  async function handleGetPlaybook() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      router.push('/playbook-wizard');
+    } else {
+      setShowRegisterModal(true);
+    }
+  }
+
+  function handleRegisterSuccess(email: string | null) {
     setUserEmail(email);
-    // after login/registration, take them to dashboard
-    router.push('/dashboard');
+    setShowRegisterModal(false);
+    router.push('/playbook-wizard');
   }
 
   return (
     <>
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        {/* STICKY NAV */}
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur">
-          <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4 md:px-8">
-            <div className="text-lg font-semibold tracking-tight text-slate-900">
-              ManuPilot
-            </div>
-
-            <nav className="hidden md:flex items-center gap-8 text-sm text-slate-600">
-              <button className="hover:text-slate-900">How it works</button>
-              <button className="hover:text-slate-900">Pricing</button>
-              <button className="hover:text-slate-900">Features</button>
-            </nav>
-
-            <div className="flex items-center gap-3">
-              {loadingUser ? null : userEmail ? (
-                <Link
-                  href="/dashboard"
-                  className="px-5 py-2 rounded-full border border-slate-300 text-sm font-medium text-slate-800 hover:bg-slate-100 transition"
-                >
-                  Account
-                </Link>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowLogin(true)}
-                    className="px-4 py-2 rounded-full border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-100 transition"
-                  >
-                    Log in
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowRegister(true)}
-                    className="px-4 py-2 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500 transition"
-                  >
-                    Register
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
-
         {/* HERO */}
         <section className="relative overflow-hidden">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.12),_transparent_55%)]" />
@@ -179,23 +108,19 @@ export default function Home() {
 
                 <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
                   <button
-                    onClick={handleQuickTestProject}
-                    disabled={creating}
-                    className="inline-flex items-center justify-center rounded-full px-8 py-3 bg-sky-600 text-white font-medium text-sm md:text-base shadow-[0_14px_30px_rgba(56,189,248,0.35)] hover:bg-sky-500 transition disabled:opacity-50"
+                    onClick={handleStartProject}
+                    className="inline-flex items-center justify-center rounded-full px-8 py-3 bg-sky-600 text-white font-medium text-sm md:text-base shadow-[0_14px_30px_rgba(56,189,248,0.35)] hover:bg-sky-500 transition"
                   >
-                    {creating ? 'Creating…' : 'Start your first project'}
+                    Start your first project
                   </button>
 
-                  <button className="inline-flex items-center justify-center rounded-full px-8 py-3 border border-slate-300 text-slate-700 text-sm md:text-base hover:border-slate-400 hover:bg-slate-50 transition">
-                    See how ManuPilot works
+                  <button
+                    onClick={handleGetPlaybook}
+                    className="inline-flex items-center justify-center rounded-full px-8 py-3 border border-slate-300 text-slate-700 text-sm md:text-base hover:border-slate-400 hover:bg-slate-50 transition"
+                  >
+                    Get a free Manufacturing Playbook
                   </button>
                 </div>
-
-                {createMessage && (
-                  <div className="mt-3 inline-flex rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-xs md:text-sm text-sky-800 shadow-sm">
-                    {createMessage}
-                  </div>
-                )}
 
                 <div className="grid gap-4 pt-6 text-xs md:grid-cols-3 md:text-sm text-slate-500">
                   <div className="flex gap-3 items-start">
@@ -219,9 +144,10 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* BLUEPRINT CARD */}
+              {/* Right side illustration placeholder */}
               <div className="relative">
                 <div className="mx-auto w-full max-w-md h-80 rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-indigo-50 shadow-[0_18px_45px_rgba(15,23,42,0.16)] overflow-hidden">
+                  {/* You can keep or tweak this blueprint card as before */}
                   <div
                     className="absolute inset-0 opacity-60"
                     style={{
@@ -238,7 +164,6 @@ export default function Home() {
                       </span>
                       <span>ManuPilot Blueprint</span>
                     </div>
-
                     <div className="space-y-4">
                       <div className="rounded-2xl border border-sky-300/70 bg-white/80 px-4 py-3 shadow-sm">
                         <div className="text-[11px] uppercase tracking-wide text-sky-700">
@@ -250,7 +175,6 @@ export default function Home() {
                           <span>Height: 85mm</span>
                         </div>
                       </div>
-
                       <div className="rounded-2xl border border-indigo-200/80 bg-white/80 px-4 py-3 shadow-sm">
                         <div className="text-[11px] uppercase tracking-wide text-indigo-700">
                           Materials
@@ -267,7 +191,6 @@ export default function Home() {
                           </span>
                         </div>
                       </div>
-
                       <div className="grid grid-cols-3 gap-3 text-[11px] text-slate-600">
                         <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-center">
                           MOQ
@@ -289,7 +212,6 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
-
                     <div className="flex items-center justify-between text-[11px] text-slate-500">
                       <span>Draft spec ready</span>
                       <span className="inline-flex items-center gap-1 text-emerald-600">
@@ -304,7 +226,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
+        {/* HOW IT WORKS SECTION KEEPING AS BEFORE (optional) */}
         <section className="relative z-10 bg-white">
           <div className="max-w-7xl mx-auto px-6 pt-14 pb-24 md:px-8 md:pt-20">
             <FadeInSection className="space-y-10">
@@ -367,34 +289,17 @@ export default function Home() {
             </FadeInSection>
           </div>
         </section>
-
-        {/* FOOTER */}
-        <footer className="border-t border-slate-200 bg-white">
-          <div className="max-w-7xl mx-auto px-6 py-6 md:px-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between text-xs text-slate-500">
-            <p>
-              ManuPilot © {new Date().getFullYear()} — Built for creators, founders
-              and product innovators.
-            </p>
-            <div className="flex gap-4">
-              <button className="hover:text-slate-700">Privacy</button>
-              <button className="hover:text-slate-700">Terms</button>
-            </div>
-          </div>
-        </footer>
       </main>
 
-      {/* AUTH MODALS */}
-      <LoginModal
-        open={showLogin}
-        onClose={() => setShowLogin(false)}
-        onAuthSuccess={handleAuthSuccess}
-      />
-      <RegisterModal
-        open={showRegister}
-        onClose={() => setShowRegister(false)}
-        onAuthSuccess={handleAuthSuccess}
-      />
+      {/* ManuBot chat widget */}
       <ChatWidget />
+
+      {/* Register modal specifically for home CTA when user not logged in */}
+      <RegisterModal
+        open={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        onAuthSuccess={handleRegisterSuccess}
+      />
     </>
   );
 }
