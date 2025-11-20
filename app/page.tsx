@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import ChatWidget from '@/components/ChatWidget';
-import { RegisterModal } from '@/components/RegisterModal';
+import RegisterModal from '@/components/RegisterModal';
 
 function FadeInSection({
   children,
