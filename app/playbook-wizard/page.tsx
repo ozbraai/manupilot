@@ -261,23 +261,24 @@ export default function PlaybookWizardPage() {
     }
   }
 
-  // === [7] CURRENT STEP VALUE / DISABLE LOGIC ===
-  const currentValue =
+    // === [7] CURRENT STEP VALUE / DISABLE LOGIC ===
+  const currentValue: string =
     stepIndex === 0
       ? idea
       : stepIndex >= 3 && currentQuestion
-      ? answers[currentQuestion.key] || ''
+      ? (answers[currentQuestion.key] || '')
       : stepIndex === 2
       ? Object.values(constraints).join('').trim()
       : 'ok'; // components step is checkbox-based, no text requirement
 
-  const isNextDisabled =
+  const isNextDisabled: boolean = Boolean(
     submitting ||
-    loadingIdea ||
-    loadingComponents ||
-    loadingQuestions ||
-    (stepIndex === 0 && !currentValue.trim()) ||
-    (stepIndex >= 3 && currentQuestion && !currentValue.trim());
+      loadingIdea ||
+      loadingComponents ||
+      loadingQuestions ||
+      (stepIndex === 0 && !currentValue.trim()) ||
+      (stepIndex >= 3 && currentQuestion && !currentValue.trim())
+  );
 
   // === [8] RENDER ===
   return (
