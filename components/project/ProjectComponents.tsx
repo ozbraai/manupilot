@@ -36,12 +36,11 @@ export default function ProjectComponents({ free }: ProjectComponentsProps) {
 
   return (
     <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
-      {/* === [2.1] TITLE === */}
+      {/* === [2.1] TITLE + SUMMARY === */}
       <h2 className="text-lg font-semibold text-slate-900">
         🧩 Components & supplier strategy
       </h2>
 
-      {/* === [2.2] SUMMARY === */}
       <p className="text-sm text-slate-700">
         This product appears to consist of approximately{' '}
         <span className="font-semibold">
@@ -53,57 +52,60 @@ export default function ProjectComponents({ free }: ProjectComponentsProps) {
           : 'a multi-component assembly.'}
       </p>
 
-      {/* === [2.3] SUB-PRODUCTS === */}
-      {subProducts.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-            Sub-products
-          </h3>
-          <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-            {subProducts.map((sp: string, idx: number) => (
-              <li key={idx}>{sp}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* === [2.2] GRID OF INNER BLOCKS === */}
+      <div className="mt-3 grid gap-4 md:grid-cols-2">
+        {/* Sub-products */}
+        {subProducts.length > 0 && (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">
+              Sub-products
+            </h3>
+            <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
+              {subProducts.map((sp: string, idx: number) => (
+                <li key={idx}>{sp}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      {/* === [2.4] COMPONENT LIST === */}
-      {componentList.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-            Components
-          </h3>
-          <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-            {componentList.map((c: string, idx: number) => (
-              <li key={idx}>{c}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {/* Component list */}
+        {componentList.length > 0 && (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">
+              Components
+            </h3>
+            <ul className="list-disc list-inside text-sm text-slate-700 space-y-1 max-h-40 overflow-y-auto">
+              {componentList.map((c: string, idx: number) => (
+                <li key={idx}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      {/* === [2.5] SUPPLIER TYPES === */}
-      {supplierTypes.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-            Supplier types
-          </h3>
-          <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-            {supplierTypes.map((s: string, idx: number) => (
-              <li key={idx}>{s}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {/* Supplier types */}
+        {supplierTypes.length > 0 && (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">
+              Supplier types
+            </h3>
+            <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
+              {supplierTypes.map((s: string, idx: number) => (
+                <li key={idx}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      {/* === [2.6] NOTES === */}
-      {notes && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-            Notes
-          </h3>
-          <p className="text-sm text-slate-700">{notes}</p>
-        </div>
-      )}
+        {/* Notes */}
+        {notes && (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">
+              Notes
+            </h3>
+            <p className="text-sm text-slate-700">{notes}</p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

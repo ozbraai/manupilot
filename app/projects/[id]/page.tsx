@@ -199,35 +199,41 @@ export default function ProjectPage() {
           setShowPlaybook={setShowPlaybook}
         />
 
-        {/* [5.2] KEY INFO */}
-        {free && <ProjectKeyInfo free={free} />}
-
-        {/* [5.3] MATERIALS & FEATURES */}
-        {free && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <ProjectMaterials free={free} />
-            <ProjectFeatures free={free} />
-          </div>
-        )}
-
-        {/* [5.4] COMPONENTS & SUPPLIERS */}
+        {/* [5.2] COMPONENTS & SUPPLIERS */}
         {free && <ProjectComponents free={free} />}
 
-        {/* [5.5] MANUFACTURING APPROACH & RISKS */}
+        {/* [5.3] KEY INFO */}
+        {free && <ProjectKeyInfo free={free} />}
+
+        {/* [5.3] MATERIALS & FEATURES (grouped like components) */}
         {free && (
-          <div className="grid gap-4 md:grid-cols-[1.7fr_1.3fr]">
-            <ProjectApproach free={free} />
-            <ProjectRisks free={free} />
-          </div>
+          <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="grid gap-4 md:grid-cols-2">
+            <ProjectMaterials free={free} />
+            <ProjectFeatures free={free} />
+           </div>
+          </section>
         )}
 
-        {/* [5.6] TIMELINE & NEXT STEPS */}
+        {/* [5.4] MANUFACTURING APPROACH & RISKS (grouped) */}
         {free && (
+          <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="grid gap-4 md:grid-cols-[1.7fr_1.3fr]">
+             <ProjectApproach free={free} />
+             <ProjectRisks free={free} />
+         </div>
+          </section>
+        )}
+
+        {/* [5.5] TIMELINE & NEXT STEPS (grouped) */}
+        {free && (
+         <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="grid gap-4 md:grid-cols-[1.5fr_1.5fr]">
             <ProjectTimeline free={free} />
             <ProjectNextSteps free={free} />
-          </div>
-        )}
+         </div>
+        </section>
+    )}
 
         {/* [5.7] NOTES & ACTIVITY LOG */}
         <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">

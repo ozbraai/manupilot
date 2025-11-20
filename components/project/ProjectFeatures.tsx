@@ -4,23 +4,18 @@
 
 import React from 'react';
 
-// === [1] TYPES ===
 type ProjectFeaturesProps = {
   free: any;
 };
 
-// === [2] COMPONENT ROOT ===
 export default function ProjectFeatures({ free }: ProjectFeaturesProps) {
   const features = free?.keyFeatures || [];
 
   return (
-    <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-      {/* === [2.1] TITLE === */}
-      <h2 className="text-lg font-semibold text-slate-900 mb-3">
+    <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col">
+      <h2 className="text-sm font-semibold text-slate-900 mb-2">
         ⭐ Key features
       </h2>
-
-      {/* === [2.2] CONTENT === */}
       {features.length ? (
         <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
           {features.map((f: string, idx: number) => (
@@ -32,6 +27,6 @@ export default function ProjectFeatures({ free }: ProjectFeaturesProps) {
           No key features captured yet.
         </p>
       )}
-    </section>
+    </div>
   );
 }

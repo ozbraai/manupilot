@@ -4,27 +4,21 @@
 
 import React from 'react';
 
-// === [1] TYPES ===
 type ProjectTimelineProps = {
   free: any;
 };
 
-// === [2] COMPONENT ROOT ===
 export default function ProjectTimeline({ free }: ProjectTimelineProps) {
   const timeline = free?.timeline || [];
 
   return (
-    <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-      {/* === [2.1] TITLE === */}
-      <h2 className="text-lg font-semibold text-slate-900 mb-3">
+    <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col">
+      <h2 className="text-sm font-semibold text-slate-900 mb-2">
         ⏱ High-level timeline
       </h2>
-
-      {/* === [2.2] CONTENT === */}
       {timeline.length ? (
         <div className="relative pl-4">
           <div className="absolute left-1 top-1 bottom-1 w-px bg-slate-200" />
-
           <ul className="space-y-3 text-sm text-slate-700">
             {timeline.map((step: string, idx: number) => (
               <li key={idx} className="relative flex gap-3">
@@ -35,8 +29,10 @@ export default function ProjectTimeline({ free }: ProjectTimelineProps) {
           </ul>
         </div>
       ) : (
-        <p className="text-sm text-slate-600">No timeline available.</p>
+        <p className="text-sm text-slate-600">
+          No timeline has been generated yet.
+        </p>
       )}
-    </section>
+    </div>
   );
 }

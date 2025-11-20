@@ -1,16 +1,19 @@
 'use client';
 
+// === [0] IMPORTS ===
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-type RoadmapPhase = {
-  id: string;
-  name: string;
-  description: string;
-  tasks: string[];
-};
+import PlaybookHeader from '@/components/playbook/PlaybookHeader';
+import PlaybookKeyInfo from '@/components/playbook/PlaybookKeyInfo';
+import PlaybookMaterialsFeatures from '@/components/playbook/PlaybookMaterialsFeatures';
+import PlaybookApproachRisks from '@/components/playbook/PlaybookApproachRisks';
+import PlaybookTimelineNext from '@/components/playbook/PlaybookTimelineNext';
+import PlaybookActions from '@/components/playbook/PlaybookActions';
+import PlaybookPremiumUpsell from '@/components/playbook/PlaybookPremiumUpsell';
 
+// === [1] TYPES ===
 type FreeSection = {
   summary: string;
   targetCustomer: string;
@@ -27,7 +30,7 @@ type FreeSection = {
   };
   timeline: string[];
   nextSteps: string[];
-  roadmapPhases?: RoadmapPhase[];
+  components?: any;
 };
 
 type Playbook = {
@@ -39,11 +42,12 @@ type Playbook = {
 export default function PlaybookSummaryPage() {
   const router = useRouter();
 
+  // === [2] STATE ===
   const [playbook, setPlaybook] = useState<Playbook | null>(null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load playbook from localStorage
+  // === [3] LOAD PLAYBOOK (ONCE) ===
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -51,28 +55,86 @@ export default function PlaybookSummaryPage() {
     if (!raw) return;
 
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(raw) as Playbook;
       setPlaybook(parsed);
     } catch (e) {
-      console.error('Failed to parse playbook:', e);
+      console.error('Failed to parse playbook from localStorage:', e);
     }
   }, []);
 
+  // === [4] HELPER: UPDATE FREE SECTION + SYNC TO LOCALSTORAGE ===
+  function updateFree(updater: (prev: FreeSection) => FreeSection) {
+    setPlaybook((prev) => {
+      if (!prev) return prev;
+      const updatedFree = updater(prev.free);
+      const next: Playbook = { ...prev, free: updatedFree };
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('manupilotPlaybook', JSON.stringify(next));
+      }
+      return next;
+    });
+  }
+
+  // === [5] EDIT HANDLERS ===
+  const handleUpdateSummary = (summary: string) =>
+    updateFree((prev) => ({ ...prev, summary }));
+
+  const handleUpdateTargetCustomer = (targetCustomer: string) =>
+    updateFree((prev) => ({ ...prev, targetCustomer }));
+
+  const handleUpdateMaterials = (materials: string[]) =>
+    updateFree((prev) => ({ ...prev, materials }));
+
+  const handleUpdateFeatures = (keyFeatures: string[]) =>
+    updateFree((prev) => ({ ...prev, keyFeatures }));
+
+  const handleUpdateApproach = (rationale: string) =>
+    updateFree((prev) => ({
+      ...prev,
+      manufacturingApproach: {
+        ...prev.manufacturingApproach,
+        rationale,
+      },
+    }));
+
+  const handleUpdateRisks = (risks: string[]) =>
+    updateFree((prev) => ({
+      ...prev,
+      manufacturingApproach: {
+        ...prev.manufacturingApproach,
+        risks,
+      },
+    }));
+
+  const handleUpdateTimeline = (timeline: string[]) =>
+    updateFree((prev) => ({ ...prev, timeline }));
+
+  const handleUpdateNextSteps = (nextSteps: string[]) =>
+    updateFree((prev) => ({ ...prev, nextSteps }));
+
+  // === [6] CREATE PROJECT FROM PLAYBOOK ===
   async function handleCreateProject() {
     try {
       setError(null);
       setCreatingProject(true);
 
-      if (!playbook) throw new Error('No playbook data available.');
+      if (!playbook) {
+        throw new Error('No playbook data available.');
+      }
 
-      // 1. User must be logged in
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         throw new Error('Please log in or register before creating a project.');
       }
 
-      // 2. Create row in projects table
-      const title = playbook.productName || 'New ManuPilot Project';
+      const title =
+        playbook.productName && playbook.productName.trim().length > 0
+          ? playbook.productName
+          : 'New ManuPilot Project';
+
       const desc = playbook.free?.summary || '';
 
       const { data: projectRow, error: projectError } = await supabase
@@ -86,36 +148,43 @@ export default function PlaybookSummaryPage() {
         .single();
 
       if (projectError || !projectRow) {
-        console.error(projectError);
+        console.error('Project creation error:', projectError);
         throw new Error('Could not create project.');
       }
 
-      // 3. Save playbook under project ID
-      localStorage.setItem(
-        `manupilot_playbook_project_${projectRow.id}`,
-        JSON.stringify(playbook)
-      );
+      // Save edited playbook as the canonical version for this project
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          `manupilot_playbook_project_${projectRow.id}`,
+          JSON.stringify(playbook)
+        );
+      }
 
-      // 4. Redirect to roadmap
       router.push(`/projects/${projectRow.id}`);
     } catch (err: any) {
-      setError(err.message || 'Failed to create project.');
+      console.error('Create project from playbook error:', err);
+      setError(err.message || 'Failed to create project from this playbook.');
     } finally {
       setCreatingProject(false);
     }
   }
 
+  // === [7] NO PLAYBOOK FALLBACK ===
   if (!playbook) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-semibold text-slate-900">No playbook found</h1>
-          <p className="text-slate-600">Try creating a new playbook first.</p>
+        <div className="max-w-md text-center space-y-4">
+          <h1 className="text-2xl font-semibold text-slate-900">
+            No playbook found
+          </h1>
+          <p className="text-slate-600 text-sm">
+            It looks like there’s no recent playbook data. Try creating one through the wizard.
+          </p>
           <button
             onClick={() => router.push('/playbook-wizard')}
-            className="px-6 py-2 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500"
+            className="mt-2 px-6 py-2 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500"
           >
-            Create Playbook
+            Start the Manufacturing Wizard
           </button>
         </div>
       </main>
@@ -124,232 +193,61 @@ export default function PlaybookSummaryPage() {
 
   const free = playbook.free;
 
+  // === [8] MAIN VIEW ===
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
       <div className="max-w-5xl mx-auto pt-16 px-4 md:px-0 space-y-10">
 
-        {/* HEADER */}
-        <section className="mt-10 bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
-            Manufacturing Playbook
-          </p>
-          <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 mb-3">
-            {playbook.productName}
-          </h1>
-          <p className="text-slate-700 text-base md:text-lg">{free.summary}</p>
-        </section>
+        {/* [8.1] HEADER (editable summary) */}
+        <PlaybookHeader
+          productName={playbook.productName}
+          summary={free.summary}
+          onUpdateSummary={handleUpdateSummary}
+        />
 
-        {/* ERROR BANNER */}
+        {/* [8.2] ERROR BANNER */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+          <section className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
             {error}
-          </div>
+          </section>
         )}
 
-        {/* TWO-COLUMN FREE CONTENT */}
-        <section className="grid gap-6 md:grid-cols-2">
-          {/* Target customer */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 mb-3">
-              Target Customer
-            </h2>
-            <p className="text-sm text-slate-700 mb-4">{free.targetCustomer}</p>
+        {/* [8.3] KEY INFO (editable target customer) */}
+        <PlaybookKeyInfo
+          free={free}
+          onUpdateTargetCustomer={handleUpdateTargetCustomer}
+        />
 
-            <h3 className="text-sm font-semibold text-slate-900">Key Features</h3>
-            <ul className="list-disc list-inside text-sm text-slate-700 space-y-1 mt-1">
-              {free.keyFeatures.map((f, idx) => (
-                <li key={idx}>{f}</li>
-              ))}
-            </ul>
-          </div>
+        {/* [8.4] MATERIALS + FEATURES (editable) */}
+        <PlaybookMaterialsFeatures
+          free={free}
+          onUpdateMaterials={handleUpdateMaterials}
+          onUpdateFeatures={handleUpdateFeatures}
+        />
 
-          {/* Materials + pricing */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 mb-3">Materials</h2>
-              <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-                {free.materials.map((m, idx) => (
-                  <li key={idx}>{m}</li>
-                ))}
-              </ul>
-            </div>
+        {/* [8.5] APPROACH & RISKS (editable) */}
+        <PlaybookApproachRisks
+          free={free}
+          onUpdateApproach={handleUpdateApproach}
+          onUpdateRisks={handleUpdateRisks}
+        />
 
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 mb-2">
-                Pricing & Positioning
-              </h2>
-              <p className="text-sm text-slate-700 mb-2">
-                {free.pricing.positioning}
-              </p>
-              <p className="text-sm text-slate-700">
-                {free.pricing.insight}
-              </p>
-            </div>
-          </div>
-        </section>
+        {/* [8.6] TIMELINE + NEXT STEPS (editable) */}
+        <PlaybookTimelineNext
+          free={free}
+          onUpdateTimeline={handleUpdateTimeline}
+          onUpdateNextSteps={handleUpdateNextSteps}
+        />
 
-        {/* MANUFACTURING APPROACH */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">Manufacturing Approach</h2>
+        {/* [8.7] ACTIONS */}
+        <PlaybookActions
+          creatingProject={creatingProject}
+          onCreateProject={handleCreateProject}
+          onCreateNew={() => router.push('/playbook-wizard')}
+        />
 
-          <h3 className="text-sm font-semibold text-slate-900 mt-1">
-            Recommended Regions
-          </h3>
-          <ul className="list-disc list-inside text-sm text-slate-700">
-            {free.manufacturingApproach.recommendedRegions.map((r, idx) => (
-              <li key={idx}>{r}</li>
-            ))}
-          </ul>
-
-          <p className="text-sm text-slate-700">
-            {free.manufacturingApproach.rationale}
-          </p>
-
-          <h3 className="text-sm font-semibold text-slate-900 mt-3">Risks</h3>
-          <ul className="list-disc list-inside text-sm text-slate-700">
-            {free.manufacturingApproach.risks.map((risk, idx) => (
-              <li key={idx}>{risk}</li>
-            ))}
-          </ul>
-        </section>
-
-        {/* Timeline + Next Steps */}
-        <section className="grid gap-6 md:grid-cols-2">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 mb-3">Timeline</h2>
-            <ol className="list-decimal list-inside text-sm text-slate-700 space-y-1">
-              {free.timeline.map((t, idx) => (
-                <li key={idx}>{t}</li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 mb-3">Next Steps</h2>
-            <ol className="list-decimal list-inside text-sm text-slate-700 space-y-1">
-              {free.nextSteps.map((s, idx) => (
-                <li key={idx}>{s}</li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* ACTION BUTTONS */}
-        <section className="flex flex-col md:flex-row justify-between mt-4 gap-3 md:items-center">
-          <div className="flex gap-3">
-            <button
-              onClick={() => window.print()}
-              className="px-5 py-2 rounded-full border border-slate-300 text-sm text-slate-700 hover:bg-slate-100"
-            >
-              Print / Save as PDF
-            </button>
-
-            <button
-              onClick={() => router.push('/playbook-wizard')}
-              className="px-5 py-2 rounded-full border border-slate-300 text-sm text-slate-700 hover:bg-slate-100"
-            >
-              Create Another Playbook
-            </button>
-          </div>
-
-          <button
-            onClick={handleCreateProject}
-            disabled={creatingProject}
-            className="px-6 py-2 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500 disabled:opacity-60"
-          >
-            {creatingProject ? 'Creating Project…' : 'Create Project From This Playbook'}
-          </button>
-        </section>
-
-        {/* Pricing section */}
-        <section className="mt-12">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8 md:p-10">
-            <div className="max-w-3xl mx-auto text-center space-y-3">
-              <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
-                Want a complete manufacturing plan for your product?
-              </h2>
-              <p className="text-sm md:text-base text-slate-600">
-                Upgrade to unlock full cost breakdowns, BOM, competitor analysis, safety & compliance, and more.
-              </p>
-            </div>
-
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {/* Standard Report */}
-              <div className="relative flex flex-col rounded-2xl border border-slate-200 bg-slate-50/70 p-6 shadow-sm">
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                    Standard Report
-                  </h3>
-                  <p className="text-2xl font-semibold text-slate-900">$39</p>
-                  <p className="text-xs text-slate-500 mt-1">One-time</p>
-                </div>
-
-                <ul className="text-sm text-slate-700 space-y-2 flex-1 text-left">
-                  <li>• Full manufacturing playbook</li>
-                  <li>• Cost breakdown</li>
-                  <li>• BOM (Bill of Materials)</li>
-                  <li>• Competitor benchmarking</li>
-                  <li>• Compliance checklist</li>
-                </ul>
-
-                <button className="mt-5 w-full rounded-full bg-slate-900 text-white text-sm font-medium py-2.5 hover:bg-slate-800 transition">
-                  Get Standard Report
-                </button>
-              </div>
-
-              {/* Pro Membership */}
-              <div className="relative flex flex-col rounded-2xl border border-sky-400 bg-sky-50 p-6 shadow-md md:scale-105 md:-mt-2">
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-sky-600 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
-                  Most Popular
-                </span>
-
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                    Pro Membership
-                  </h3>
-                  <p className="text-2xl font-semibold text-slate-900">$9</p>
-                  <p className="text-xs text-slate-500 mt-1">Monthly</p>
-                </div>
-
-                <ul className="text-sm text-slate-800 space-y-2 flex-1 text-left">
-                  <li>• Everything in Standard Report</li>
-                  <li>• Unlimited playbooks</li>
-                  <li>• Unlimited revisions</li>
-                  <li>• Save to projects</li>
-                  <li>• Download branded PDFs</li>
-                </ul>
-
-                <button className="mt-5 w-full rounded-full bg-sky-600 text-white text-sm font-medium py-2.5 hover:bg-sky-500 transition">
-                  Join Pro Membership
-                </button>
-              </div>
-
-              {/* Premium Bundle */}
-              <div className="relative flex flex-col rounded-2xl border border-amber-300 bg-amber-50/60 p-6 shadow-sm">
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                    Premium Bundle
-                  </h3>
-                  <p className="text-2xl font-semibold text-slate-900">$99</p>
-                  <p className="text-xs text-slate-500 mt-1">One-time</p>
-                </div>
-
-                <ul className="text-sm text-slate-800 space-y-2 flex-1 text-left">
-                  <li>• Everything in Pro Membership</li>
-                  <li>• Personalised sourcing plan</li>
-                  <li>• Factory outreach templates</li>
-                  <li>• Supplier scoring sheet</li>
-                  <li>• Packaging & launch checklist</li>
-                  <li>• Early-access features</li>
-                </ul>
-
-                <button className="mt-5 w-full rounded-full bg-amber-500 text-slate-900 text-sm font-medium py-2.5 hover:bg-amber-400 transition">
-                  Upgrade to Premium
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* [8.8] PREMIUM UPSELL */}
+        <PlaybookPremiumUpsell />
       </div>
     </main>
   );
