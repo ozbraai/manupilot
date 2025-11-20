@@ -4,13 +4,24 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const { idea, productName } = await req.json();
+    const body = await req.json();
+    const idea: string = body?.idea || '';
+    const rawProductName: string = (body?.productName || '').trim();
+
+    // Safe base name we can use anywhere
+    const baseName = rawProductName || 'Core product';
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error('Missing OPENAI_API_KEY');
+      console.error('Missing OPENAI_API_KEY in /api/wizard/components');
+      // Safe fallback using baseName
       return NextResponse.json(
-        { coreProduct: productName || 'Core product', suggestedComponents: [] },
+        {
+          coreProduct: baseName,
+          suggestedComponents: [
+            { id: 'core', label: baseName, required: true },
+          ],
+        },
         { status: 200 }
       );
     }
@@ -22,7 +33,7 @@ Given this idea:
 
 "${idea}"
 
-Short product name: "${productName || ''}"
+Short product name: "${rawProductName || ''}"
 
 1. Identify the CORE product (the main functional item).
 2. Suggest 2–4 additional components or extras that a founder might reasonably want help with, such as:
@@ -69,7 +80,12 @@ Output JSON in this format, and nothing else:
     if (!res.ok) {
       console.error('components route AI error:', raw);
       return NextResponse.json(
-        { coreProduct: productName || 'Core product', suggestedComponents: [] },
+        {
+          coreProduct: baseName,
+          suggestedComponents: [
+            { id: 'core', label: baseName, required: true },
+          ],
+        },
         { status: 200 }
       );
     }
@@ -83,27 +99,33 @@ Output JSON in this format, and nothing else:
       console.error('components route parse error:', e, raw);
       return NextResponse.json(
         {
-          coreProduct: productName || 'Core product',
+          coreProduct: baseName,
           suggestedComponents: [
-            {
-              id: 'core',
-              label: productName || 'Core product',
-              required: true,
-            },
+            { id: 'core', label: baseName, required: true },
           ],
         },
         { status: 200 }
       );
     }
 
+    // Make sure basics exist
+    if (!payload.coreProduct) payload.coreProduct = baseName;
+    if (!Array.isArray(payload.suggestedComponents)) {
+      payload.suggestedComponents = [
+        { id: 'core', label: baseName, required: true },
+      ];
+    }
+
     return NextResponse.json(payload);
   } catch (e: any) {
     console.error('components route error:', e);
+    // Last-resort fallback
+    const baseName = 'Core product';
     return NextResponse.json(
       {
-        coreProduct: productName || 'Core product',
+        coreProduct: baseName,
         suggestedComponents: [
-          { id: 'core', label: productName || 'Core product', required: true },
+          { id: 'core', label: baseName, required: true },
         ],
       },
       { status: 200 }
