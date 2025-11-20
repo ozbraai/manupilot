@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { LoginModal } from '@/components/LoginModal';
-import { RegisterModal } from '@/components/RegisterModal';
+import RegisterModal from '@/components/RegisterModal';
 
 export default function Navbar() {
   const router = useRouter();
