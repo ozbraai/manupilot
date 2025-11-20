@@ -153,12 +153,16 @@ export default function PlaybookSummaryPage() {
       }
 
       // Save edited playbook as the canonical version for this project
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(
-          `manupilot_playbook_project_${projectRow.id}`,
-          JSON.stringify(playbook)
-        );
-      }
+// Save edited playbook as the canonical version for this project
+if (typeof window !== 'undefined') {
+  // store a locked copy under project ID
+  window.localStorage.setItem(
+    `manupilot_playbook_project_${projectRow.id}`,
+    JSON.stringify(playbook)
+  );
+  // remove generic draft so it no longer shows as "Draft playbook"
+  window.localStorage.removeItem('manupilotPlaybook');
+}
 
       router.push(`/projects/${projectRow.id}`);
     } catch (err: any) {

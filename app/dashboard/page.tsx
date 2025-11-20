@@ -1,598 +1,530 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
+// === [1] TYPES ===
 type Project = {
   id: string;
   title: string;
   description: string | null;
   created_at: string;
+  status?: string | null;
 };
 
-type CompletionState = {
-  [phaseId: string]: {
-    [taskId: string]: boolean;
+type PlaybookDraft = {
+  productName: string;
+  free: {
+    summary: string;
   };
 };
 
-type ProjectProgressMap = {
-  [projectId: string]: number;
+type CompletionState = {
+  [phaseId: string]: { [taskId: string]: boolean };
 };
 
-type DraftPlaybook = {
-  productName: string;
-  summary: string;
-};
+type StatusKey = 'all' | 'not-started' | 'in-progress' | 'completed';
+type SortOption = 'newest' | 'oldest';
 
-type ProjectCategoryMap = {
-  [projectId: string]: string;
-};
+// === [2] STATUS HELPERS (BASED ON PROGRESS) ===
+function getStatusLabelFromProgress(progress: number): string {
+  if (progress >= 100) return 'Completed';
+  if (progress > 0) return 'In progress';
+  return 'Not started';
+}
 
+function getStatusDotClass(progress: number): string {
+  if (progress >= 100) return 'bg-emerald-500';
+  if (progress > 0) return 'bg-sky-500';
+  return 'bg-slate-300';
+}
+
+function getStatusKeyFromProgress(progress: number): StatusKey {
+  if (progress >= 100) return 'completed';
+  if (progress > 0) return 'in-progress';
+  return 'not-started';
+}
+
+// === [3] PAGE COMPONENT ===
 export default function DashboardPage() {
   const router = useRouter();
 
+  // Projects & draft
   const [projects, setProjects] = useState<Project[]>([]);
-  const [progressMap, setProgressMap] = useState<ProjectProgressMap>({});
-  const [categoryMap, setCategoryMap] = useState<ProjectCategoryMap>({});
-
-  const [draftPlaybook, setDraftPlaybook] = useState<DraftPlaybook | null>(null);
-
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'not-started' | 'in-progress' | 'completed'>('all');
-  const [sort, setSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
-
-  const [loading, setLoading] = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // =======================
-  // LOAD PROJECTS + PROGRESS + DRAFT PLAYBOOK
-  // =======================
+  const [draftPlaybook, setDraftPlaybook] = useState<PlaybookDraft | null>(
+    null
+  );
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
+  const [sortOrder, setSortOrder] = useState<SortOption>('newest');
+
+  // Derived per-project data
+  const [projectCategories, setProjectCategories] = useState<
+    Record<string, string>
+  >({});
+  const [projectProgress, setProjectProgress] = useState<
+    Record<string, number>
+  >({});
+
+  // === [4] LOAD PROJECTS FROM SUPABASE ===
   useEffect(() => {
-    async function load() {
+    async function loadProjects() {
       try {
-        setLoading(true);
+        setLoadingProjects(true);
         setError(null);
 
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError) {
-          console.error('Auth error:', authError);
-        }
-
-        if (!user) {
-          setError('Please log in to view your projects.');
-          return;
-        }
-
-        const { data, error: projectError } = await supabase
+        const { data, error: dbError } = await supabase
           .from('projects')
           .select('*')
-          .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
-        if (projectError) {
-          console.error('Project load error:', projectError);
+        if (dbError) {
+          console.error('Failed to load projects:', dbError);
           setError('Could not load projects.');
+          setProjects([]);
           return;
         }
 
-        const typedProjects = (data || []) as Project[];
-        setProjects(typedProjects);
-
-        // Compute progress & draft playbook on client
-        if (typeof window !== 'undefined') {
-          // Progress per project
-          const newProgress: ProjectProgressMap = {};
-
-          typedProjects.forEach((project) => {
-            try {
-              const pbRaw = window.localStorage.getItem(
-                `manupilot_playbook_project_${project.id}`
-              );
-              const rmRaw = window.localStorage.getItem(
-                `manupilot_project_${project.id}_roadmap`
-              );
-
-              if (!pbRaw || !rmRaw) {
-                newProgress[project.id] = 0;
-                return;
-              }
-
-              const playbook = JSON.parse(pbRaw);
-              const completion = JSON.parse(rmRaw) as CompletionState;
-              const phases = playbook?.free?.roadmapPhases;
-
-              if (!phases || !Array.isArray(phases) || phases.length === 0) {
-                newProgress[project.id] = 0;
-                return;
-              }
-
-              let totalTasks = 0;
-              let completedTasks = 0;
-
-              phases.forEach((phase: any) => {
-                const phaseId = phase.id || phase.name;
-                const tasks: string[] = phase.tasks || [];
-
-                tasks.forEach((_: any, idx: number) => {
-                  totalTasks += 1;
-                  const taskId = `${phaseId}_task_${idx}`;
-                  const isDone = completion?.[phaseId]?.[taskId] === true;
-                  if (isDone) completedTasks += 1;
-                });
-              });
-
-              newProgress[project.id] =
-                totalTasks === 0
-                  ? 0
-                  : Math.round((completedTasks / totalTasks) * 100);
-            } catch (e) {
-              console.error('Progress compute error:', e);
-              newProgress[project.id] = 0;
-            }
-          });
-
-          setProgressMap(newProgress);
-
-          // Draft playbook not yet turned into a project
-          const draftRaw = window.localStorage.getItem('manupilotPlaybook');
-          if (draftRaw) {
-            try {
-              const pb = JSON.parse(draftRaw);
-              const name = pb.productName || 'Untitled product';
-              const summary = pb.free?.summary || '';
-              setDraftPlaybook({ productName: name, summary });
-            } catch (e) {
-              console.error('Draft playbook parse error:', e);
-            }
-          }
-        }
+        setProjects((data || []) as Project[]);
       } finally {
-        setLoading(false);
+        setLoadingProjects(false);
       }
     }
 
-    load();
+    loadProjects();
   }, []);
 
-  // =======================
-  // AI CATEGORY CLASSIFICATION PER PROJECT
-  // =======================
+  // === [5] LOAD DRAFT PLAYBOOK FROM LOCALSTORAGE ===
   useEffect(() => {
-    if (projects.length === 0 || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
-    const nextMap: ProjectCategoryMap = { ...categoryMap };
-    const toFetch: Project[] = [];
-
-    projects.forEach((project) => {
-      if (nextMap[project.id]) return;
-
-      const storageKey = `manupilot_project_${project.id}_category`;
-      const cached = window.localStorage.getItem(storageKey);
-
-      if (cached) {
-        nextMap[project.id] = cached;
-      } else {
-        toFetch.push(project);
-      }
-    });
-
-    if (Object.keys(nextMap).length > 0) {
-      setCategoryMap(nextMap);
+    const raw = window.localStorage.getItem('manupilotPlaybook');
+    if (!raw) {
+      setDraftPlaybook(null);
+      return;
     }
-
-    if (toFetch.length === 0) return;
-
-    // Call AI route for uncategorised projects
-    Promise.all(
-      toFetch.map(async (project) => {
-        try {
-          const res = await fetch('/api/project-category', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: project.title,
-              description: project.description,
-            }),
-          });
-
-          const data = await res.json();
-          const category = data.category || 'General';
-
-          window.localStorage.setItem(
-            `manupilot_project_${project.id}_category`,
-            category
-          );
-
-          setCategoryMap((prev) => ({
-            ...prev,
-            [project.id]: category,
-          }));
-        } catch (e) {
-          console.error('Failed to fetch category for project', project.id, e);
-        }
-      })
-    );
-  }, [projects]);
-
-  // =======================
-  // HANDLERS
-  // =======================
-
-  function handleNewPlaybook() {
-    router.push('/playbook-wizard');
-  }
-
-  function handleOpenProject(id: string) {
-    router.push(`/projects/${id}`);
-  }
-
-  async function handleDeleteProject(id: string) {
-    const confirmed = window.confirm(
-      'Delete this project from ManuPilot? This does not affect any real-world work, only this workspace.'
-    );
-    if (!confirmed) return;
 
     try {
-      setError(null);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setError('You must be logged in to delete a project.');
-        return;
-      }
-
-      const { error: deleteError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-
-      if (deleteError) {
-        console.error('Delete project error:', deleteError);
-        setError('Could not delete project.');
-        return;
-      }
-
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(`manupilot_playbook_project_${id}`);
-        window.localStorage.removeItem(`manupilot_project_${id}_roadmap`);
-        window.localStorage.removeItem(`manupilot_project_${id}_category`);
-      }
-
-      setProgressMap((prev) => {
-        const copy = { ...prev };
-        delete copy[id];
-        return copy;
-      });
-
-      setCategoryMap((prev) => {
-        const copy = { ...prev };
-        delete copy[id];
-        return copy;
-      });
-    } catch (e: any) {
-      console.error('Delete project error:', e);
-      setError('Something went wrong deleting the project.');
+      const parsed = JSON.parse(raw) as PlaybookDraft;
+      setDraftPlaybook(parsed);
+    } catch (e) {
+      console.error('Failed to parse draft playbook:', e);
+      setDraftPlaybook(null);
     }
-  }
+  }, []);
 
-  function statusLabel(progress: number) {
-    if (progress === 100) return 'Completed';
-    if (progress === 0) return 'Not started';
-    return 'In progress';
-  }
+  // === [6] LOAD CATEGORY & PROGRESS PER PROJECT ===
+  useEffect(() => {
+    if (typeof window === 'undefined' || projects.length === 0) return;
 
-  function statusIcon(progress: number) {
-    if (progress === 100) return '✅';
-    if (progress === 0) return '⏸️';
-    return '⏱️';
-  }
+    const categories: Record<string, string> = {};
+    const progressMap: Record<string, number> = {};
 
-  const totalProjects = projects.length;
-  const averageProgress =
-    totalProjects > 0
-      ? Math.round(
-          projects.reduce(
-            (sum, p) => sum + (progressMap[p.id] ?? 0),
-            0
-          ) / totalProjects
-        )
-      : 0;
+    projects.forEach((project) => {
+      const id = project.id;
 
-  // =======================
-  // FILTER + SEARCH + SORT
-  // =======================
+      // 6.1 Category
+      const catKey = `manupilot_project_${id}_category`;
+      const rawCat = window.localStorage.getItem(catKey);
+      categories[id] = rawCat || 'Other';
 
-  const filteredProjects = projects
-    .filter((p) => {
-      const q = search.toLowerCase();
-      return (
-        p.title.toLowerCase().includes(q) ||
-        (p.description || '').toLowerCase().includes(q)
-      );
-    })
-    .filter((p) => {
-      const prog = progressMap[p.id] ?? 0;
-      if (filter === 'completed') return prog === 100;
-      if (filter === 'not-started') return prog === 0;
-      if (filter === 'in-progress') return prog > 0 && prog < 100;
-      return true;
-    })
-    .sort((a, b) => {
-      const pa = progressMap[a.id] ?? 0;
-      const pb = progressMap[b.id] ?? 0;
+      // 6.2 Progress (read from roadmap completion & playbook)
+      try {
+        const pbRaw = window.localStorage.getItem(
+          `manupilot_playbook_project_${id}`
+        );
+        const compRaw = window.localStorage.getItem(
+          `manupilot_project_${id}_roadmap`
+        );
 
-      if (sort === 'newest')
-        return +new Date(b.created_at) - +new Date(a.created_at);
-      if (sort === 'oldest')
-        return +new Date(a.created_at) - +new Date(b.created_at);
+        if (!pbRaw || !compRaw) {
+          progressMap[id] = 0;
+          return;
+        }
 
-      if (sort === 'highest') return pb - pa;
-      if (sort === 'lowest') return pa - pb;
+        const pb = JSON.parse(pbRaw);
+        const completion = JSON.parse(compRaw) as CompletionState;
+        const phases = pb?.free?.roadmapPhases || [];
 
-      return 0;
+        let total = 0;
+        let done = 0;
+
+        phases.forEach((phase: any, pIndex: number) => {
+          const phaseId = phase.id || phase.name || `phase_${pIndex}`;
+          (phase.tasks || []).forEach((_: any, tIndex: number) => {
+            total++;
+            const taskId = `${phaseId}_task_${tIndex}`;
+            if (completion?.[phaseId]?.[taskId]) done++;
+          });
+        });
+
+        progressMap[id] = total ? Math.round((done / total) * 100) : 0;
+      } catch (e) {
+        console.error('Error computing project progress:', e);
+        progressMap[id] = 0;
+      }
     });
 
+    setProjectCategories(categories);
+    setProjectProgress(progressMap);
+  }, [projects]);
+
+  // === [7] STATS CALC ===
+  const totalProjects = projects.length;
+
+  const averageProgress = useMemo(() => {
+    const values = Object.values(projectProgress);
+    if (!values.length) return 0;
+    const sum = values.reduce((acc, p) => acc + p, 0);
+    return Math.round(sum / values.length);
+  }, [projectProgress]);
+
+  // === [8] FILTER + SORT PROJECTS FOR DISPLAY ===
+  const filteredProjects = useMemo(() => {
+    const bySearch = projects.filter((p) => {
+      const text = (
+        p.title +
+        ' ' +
+        (p.description || '')
+      ).toLowerCase();
+      return text.includes(search.toLowerCase());
+    });
+
+    const byStatus = bySearch.filter((p) => {
+      const progress = projectProgress[p.id] ?? 0;
+      const key = getStatusKeyFromProgress(progress);
+
+      if (statusFilter === 'all') return true;
+      return key === statusFilter;
+    });
+
+    const sorted = [...byStatus].sort((a, b) => {
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      if (sortOrder === 'newest') return db - da;
+      return da - db;
+    });
+
+    return sorted;
+  }, [projects, projectProgress, search, statusFilter, sortOrder]);
+
+  // === [9] HANDLERS ===
+  function handleDelete(projectId: string) {
+    const yes = window.confirm(
+      'Are you sure you want to delete this project?'
+    );
+    if (!yes) return;
+
+    supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Failed to delete project:', error);
+          alert('Failed to delete project.');
+          return;
+        }
+
+        setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      });
+  }
+
+  function formatDate(value: string) {
+    const d = new Date(value);
+    return d.toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  // === [10] RENDER ===
   return (
     <main className="min-h-screen bg-slate-50 pb-20">
-      <div className="max-w-7xl mx-auto pt-12 px-4 md:px-0 space-y-8">
+      <div className="max-w-6xl mx-auto pt-12 px-4 md:px-0 space-y-8">
         {/* HEADER */}
-        <section className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Dashboard</h1>
-            <p className="mt-2 text-sm md:text-base text-slate-600">
-              View your products in development, draft playbooks, and roadmap
-              progress across ManuPilot.
-            </p>
-          </div>
-          <button
-            onClick={handleNewPlaybook}
-            className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500 transition"
-          >
-            + Start new Playbook
-          </button>
+        <section>
+          <h1 className="text-3xl font-semibold text-slate-900 mb-2">
+            Dashboard
+          </h1>
+          <p className="text-sm text-slate-600">
+            View your products in development, draft playbooks, and roadmap progress across ManuPilot.
+          </p>
         </section>
 
-        {/* STATS */}
+        {/* STATS ROW */}
         <section className="grid gap-4 md:grid-cols-3">
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
               Projects
             </p>
             <p className="text-2xl font-semibold text-slate-900">
               {totalProjects}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              ManuPilot workspaces currently in your account
+              ManuPilot workspaces currently in your account.
             </p>
           </div>
+
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
               Average progress
             </p>
             <p className="text-2xl font-semibold text-slate-900">
               {averageProgress}%
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              Based on roadmap tasks completed across projects
+              Based on roadmap tasks completed across projects.
             </p>
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-1">
-              Next step
-            </p>
-            <p className="text-sm text-slate-700 mt-1">
-              Continue with a project below or start a new idea to explore
-              another product concept.
-            </p>
-          </div>
-        </section>
 
-        {/* DRAFT PLAYBOOK */}
-        {draftPlaybook && (
-          <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
-              Draft Playbook
-            </p>
-            <h2 className="text-lg md:text-xl font-semibold text-slate-900">
-              {draftPlaybook.productName}
-            </h2>
-            {draftPlaybook.summary && (
-              <p className="mt-1 text-sm text-slate-700 line-clamp-3">
-                {draftPlaybook.summary}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
+                Next step
               </p>
-            )}
-            <div className="mt-4 flex flex-wrap gap-3">
+              <p className="text-xs text-slate-600">
+                Continue building momentum on existing projects or explore a new idea.
+              </p>
+            </div>
+            <div className="mt-3 flex justify-end">
               <button
-                onClick={() => router.push('/playbook-summary')}
-                className="px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-800 hover:bg-slate-100 transition"
+                type="button"
+                onClick={() => router.push('/playbook-wizard')}
+                className="inline-flex items-center rounded-full bg-sky-600 text-white text-xs font-medium px-4 py-2 hover:bg-sky-500"
               >
-                Continue playbook
-              </button>
-              <button
-                onClick={handleNewPlaybook}
-                className="px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-800 hover:bg-slate-100 transition"
-              >
-                Start new idea
+                + Start new Playbook
               </button>
             </div>
-          </section>
-        )}
-
-        {/* ERROR */}
-        {error && (
-          <section className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl p-4">
-            {error}
-          </section>
-        )}
-
-        {/* SEARCH + FILTER + SORT */}
-        <section className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="relative w-full md:w-1/3">
-            <span className="absolute left-3 top-2.5 text-slate-400 text-sm">
-              🔍
-            </span>
-            <input
-              type="text"
-              placeholder="Search projects..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-sky-500"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap gap-2">
-              <FilterChip
-                label="All"
-                active={filter === 'all'}
-                onClick={() => setFilter('all')}
-              />
-              <FilterChip
-                label="Not started"
-                active={filter === 'not-started'}
-                onClick={() => setFilter('not-started')}
-              />
-              <FilterChip
-                label="In progress"
-                active={filter === 'in-progress'}
-                onClick={() => setFilter('in-progress')}
-              />
-              <FilterChip
-                label="Completed"
-                active={filter === 'completed'}
-                onClick={() => setFilter('completed')}
-              />
-            </div>
-            <select
-              className="border border-slate-300 text-sm rounded-xl px-3 py-2 bg-white"
-              value={sort}
-              onChange={(e) =>
-                setSort(e.target.value as 'newest' | 'oldest' | 'highest' | 'lowest')
-              }
-            >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="highest">Highest progress</option>
-              <option value="lowest">Lowest progress</option>
-            </select>
           </div>
         </section>
 
-        {/* PROJECT CARDS */}
-        <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {loading ? (
-            <p className="text-sm text-slate-500">Loading projects…</p>
-          ) : filteredProjects.length === 0 ? (
-            <p className="text-sm text-slate-500">No projects match your filters.</p>
-          ) : (
-            filteredProjects.map((project) => {
-              const progress = progressMap[project.id] ?? 0;
-              const createdDate = new Date(project.created_at).toLocaleDateString();
-              const category = categoryMap[project.id] || 'General';
-
-              return (
-                <div
-                  key={project.id}
-                  className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+        {/* DRAFT PLAYBOOK OR CTA */}
+        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          {draftPlaybook ? (
+            <>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
+                Draft playbook
+              </p>
+              <h2 className="text-base font-semibold text-slate-900">
+                {draftPlaybook.productName || 'Untitled concept'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {draftPlaybook.free?.summary ||
+                  'You have a playbook in progress. Continue refining it or start a new idea.'}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.push('/playbook-summary')}
+                  className="px-4 py-2 rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100"
                 >
-                  {/* Status + Created */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <span>{statusIcon(progress)}</span>
-                      <span>{statusLabel(progress)}</span>
+                  Continue playbook
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/playbook-wizard')}
+                  className="px-4 py-2 rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Start new idea
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
+                Ready for your next idea?
+              </p>
+              <h2 className="text-base font-semibold text-slate-900">
+                What exciting product are you designing next?
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Start a new ManuPilot playbook to explore a new product concept and let the
+                AI help you map out components, suppliers, and manufacturing strategy.
+              </p>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => router.push('/playbook-wizard')}
+                  className="px-5 py-2 rounded-full bg-sky-600 text-white text-xs font-medium hover:bg-sky-500"
+                >
+                  Start new idea
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* PROJECT TOOLBAR */}
+        <section className="space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {/* Search */}
+            <div className="relative w-full md:w-1/3">
+              <span className="absolute left-3 top-2.5 text-slate-400 text-sm">
+                🔍
+              </span>
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+
+            {/* Filters + Sort */}
+            <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
+              {/* Status filter */}
+              <div className="inline-flex rounded-full bg-slate-100 p-1">
+                {(['all', 'not-started', 'in-progress', 'completed'] as StatusKey[]).map(
+                  (key) => {
+                    const label =
+                      key === 'all'
+                        ? 'All'
+                        : key === 'not-started'
+                        ? 'Not started'
+                        : key === 'in-progress'
+                        ? 'In progress'
+                        : 'Completed';
+                    const active = statusFilter === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setStatusFilter(key)}
+                        className={
+                          'px-3 py-1 rounded-full font-medium ' +
+                          (active
+                            ? 'bg-sky-600 text-white'
+                            : 'bg-transparent text-slate-700')
+                        }
+                      >
+                        {label}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+
+              {/* Sort */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
+                  Sort
+                </span>
+                <select
+                  className="border border-slate-300 text-xs rounded-full px-3 py-1 bg-white"
+                  value={sortOrder}
+                  onChange={(e) =>
+                    setSortOrder(e.target.value as SortOption)
+                  }
+                >
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* PROJECT CARDS GRID */}
+        <section>
+          {loadingProjects ? (
+            <p className="text-sm text-slate-500 mt-4">Loading projects…</p>
+          ) : error ? (
+            <p className="text-sm text-red-600 mt-4">{error}</p>
+          ) : filteredProjects.length === 0 ? (
+            <p className="text-sm text-slate-500 mt-4">
+              No projects match your filters.
+            </p>
+          ) : (
+            <div className="mt-3 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredProjects.map((project) => {
+                const progress = projectProgress[project.id] ?? 0;
+                const statusLabel = getStatusLabelFromProgress(progress);
+                const statusDotClass = getStatusDotClass(progress);
+                const createdLabel = formatDate(project.created_at);
+                const category = projectCategories[project.id] || 'Other';
+
+                return (
+                  <article
+                    key={project.id}
+                    className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-3"
+                  >
+                    {/* Card header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <span
+                            className={`inline-flex h-2 w-2 rounded-full ${statusDotClass}`}
+                          />
+                          <span>{statusLabel}</span>
+                        </p>
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          {project.title}
+                        </h3>
+                        {project.description && (
+                          <p className="text-xs text-slate-600 line-clamp-3">
+                            {project.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right text-[11px] text-slate-500">
+                        <p className="mb-1">Created {createdLabel}</p>
+                        {category && category !== 'Other' && (
+                          <span className="inline-flex items-center rounded-full bg-slate-50 border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                            {category}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs text-slate-400">Created {createdDate}</span>
-                  </div>
 
-                  {/* Title + Category */}
-                  <div className="mb-2">
-                    <h2 className="text-lg font-semibold text-slate-900 truncate">
-                      {project.title}
-                    </h2>
-                    <span className="inline-flex mt-1 items-center rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-                      {category}
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  {project.description && (
-                    <p className="text-sm text-slate-600 line-clamp-3">
-                      {project.description}
-                    </p>
-                  )}
-
-                  {/* Progress */}
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-slate-500">
-                      <span>Progress</span>
-                      <span>{progress}%</span>
+                    {/* Progress */}
+                    <div className="pt-1">
+                      <p className="text-[11px] text-slate-500 mb-1">
+                        Progress
+                      </p>
+                      <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                        <div
+                          className="h-1.5 bg-sky-500 transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {progress}%
+                      </p>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden mt-1">
-                      <div
-                        className="h-1.5 bg-sky-500 rounded-full"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="mt-4 flex justify-between gap-2">
-                    <button
-                      onClick={() => handleOpenProject(project.id)}
-                      className="px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-800 hover:bg-slate-100 transition"
-                    >
-                      Open
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProject(project.id)}
-                      className="px-4 py-2 rounded-full border border-red-300 text-sm text-red-700 hover:bg-red-50 transition"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })
+                    {/* Actions */}
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                        className="px-4 py-1.5 rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(project.id)}
+                        className="px-4 py-1.5 rounded-full border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </section>
       </div>
     </main>
-  );
-}
-
-// Small reusable chip
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'px-4 py-1.5 rounded-full text-xs font-medium transition ' +
-        (active
-          ? 'bg-sky-600 text-white'
-          : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100')
-      }
-    >
-      {label}
-    </button>
   );
 }

@@ -491,15 +491,24 @@ export default function Navbar() {
 
       {/* AUTH MODALS */}
       <LoginModal
-        open={showLogin}
-        onClose={() => setShowLogin(false)}
-        onAuthSuccess={handleAuthSuccess}
+         open={showLogin}
+         onClose={() => setShowLogin(false)}
+         onAuthSuccess={handleAuthSuccess}
+          onSwitchToRegister={() => {
+          setShowLogin(false);
+         setShowRegister(true);
+  }}
       />
       <RegisterModal
-        open={showRegister}
-        onClose={() => setShowRegister(false)}
+       open={showRegister}
+       onClose={() => setShowRegister(false)}
         onAuthSuccess={handleAuthSuccess}
+        onSwitchToLogin={() => {
+        setShowRegister(false);
+        setShowLogin(true);
+  }}
       />
+      
     </>
   );
 }
