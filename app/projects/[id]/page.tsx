@@ -5,53 +5,55 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-import ProjectHeader from '@/components/project/ProjectHeader';
-import ProjectKeyInfo from '@/components/project/ProjectKeyInfo';
-import ProjectMaterials from '@/components/project/ProjectMaterials';
-import ProjectFeatures from '@/components/project/ProjectFeatures';
-import ProjectApproach from '@/components/project/ProjectApproach';
-import ProjectRisks from '@/components/project/ProjectRisks';
-import ProjectTimeline from '@/components/project/ProjectTimeline';
-import ProjectNextSteps from '@/components/project/ProjectNextSteps';
-import ProjectNotes from '@/components/project/ProjectNotes';
-import ProjectActivityLog from '@/components/project/ProjectActivityLog';
-import ProjectPremiumCTA from '@/components/project/ProjectPremiumCTA';
-import ProjectRoadmapModal from '@/components/project/ProjectRoadmapModal';
-import ProjectPlaybookModal from '@/components/project/ProjectPlaybookModal';
-import ProjectComponents from '@/components/project/ProjectComponents';
+import ProjectHeader from '../../../components/project/ProjectHeader';
+import ProjectKeyInfo from '../../../components/project/ProjectKeyInfo';
+import ProjectMaterials from '../../../components/project/ProjectMaterials';
+import ProjectFeatures from '../../../components/project/ProjectFeatures';
+import ProjectApproach from '../../../components/project/ProjectApproach';
+import ProjectRisks from '../../../components/project/ProjectRisks';
+import ProjectTimeline from '../../../components/project/ProjectTimeline';
+import ProjectNextSteps from '../../../components/project/ProjectNextSteps';
+import ProjectNotes from '../../../components/project/ProjectNotes';
+import ProjectActivity from '../../../components/project/ProjectActivity';
+import ProjectPlaybookModal from '../../../components/project/ProjectPlaybookModal';
+
+// === [1] TYPES ===
+type Project = {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+};
 
 type CompletionState = {
-  [phaseId: string]: { [taskId: string]: boolean };
+  [phaseId: string]: {
+    [taskId: string]: boolean;
+  };
 };
 
-type ActivityEntry = {
-  timestamp: string;
-  message: string;
+type ActivityItem = {
+  id: string;
+  type: 'note' | 'decision' | 'update';
+  title: string;
+  detail: string;
+  createdAt: string;
 };
 
-// Very light types to avoid type battles
-type Project = any;
-type Playbook = any;
-
-// === [1] PAGE COMPONENT ===
 export default function ProjectPage() {
   const params = useParams();
-  const projectId = params?.id as string;
+  const projectId = params?.id as string | undefined;
 
   const [project, setProject] = useState<Project | null>(null);
-  const [playbook, setPlaybook] = useState<Playbook | null>(null);
-
-  const [progress, setProgress] = useState(0);
-  const [category, setCategory] = useState('General');
+  const [playbook, setPlaybook] = useState<any | null>(null);
   const [completion, setCompletion] = useState<CompletionState>({});
-  const [notes, setNotes] = useState('');
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [showRoadmap, setShowRoadmap] = useState(false);
-  const [showPlaybook, setShowPlaybook] = useState(false);
-  const [includePremium, setIncludePremium] = useState(false);
+  const [category, setCategory] = useState<string | null>(null);
+  const [notes, setNotes] = useState<string>('');
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number>(0);
+  const [showPlaybook, setShowPlaybook] = useState(false);
 
   // === [2] LOAD PROJECT + LOCAL DATA ONCE ===
   useEffect(() => {
@@ -69,14 +71,27 @@ export default function ProjectPage() {
           .eq('id', projectId)
           .single();
 
-        if (projectError) {
+        const hasRealError =
+          projectError &&
+          typeof projectError === 'object' &&
+          Object.keys(projectError).length > 0;
+
+        if (hasRealError) {
+          // Real Supabase error
           console.error('Project load error:', projectError);
           setError('Could not load project.');
           setLoading(false);
           return;
         }
 
-        setProject(data);
+        if (!data && !hasRealError) {
+          // No row found – treat as “not found” instead of throwing
+          setError('Project not found. It may not have been saved yet.');
+          setLoading(false);
+          return;
+        }
+
+        setProject(data as Project);
 
         // Client-side only: playbook + local state
         if (typeof window !== 'undefined') {
@@ -92,16 +107,14 @@ export default function ProjectPage() {
           const notesRaw = window.localStorage.getItem(
             `manupilot_project_${projectId}_notes`
           );
-          const actRaw = window.localStorage.getItem(
+          const activityRaw = window.localStorage.getItem(
             `manupilot_project_${projectId}_activity`
-          );
-          const premiumFlag = window.localStorage.getItem(
-            'manupilot_include_premium'
           );
 
           if (pbRaw) {
             try {
-              setPlaybook(JSON.parse(pbRaw));
+              const parsed = JSON.parse(pbRaw);
+              setPlaybook(parsed);
             } catch (e) {
               console.error('Playbook parse error:', e);
             }
@@ -109,7 +122,8 @@ export default function ProjectPage() {
 
           if (compRaw) {
             try {
-              setCompletion(JSON.parse(compRaw));
+              const parsed = JSON.parse(compRaw);
+              setCompletion(parsed);
             } catch (e) {
               console.error('Completion parse error:', e);
             }
@@ -117,20 +131,21 @@ export default function ProjectPage() {
 
           if (catRaw) setCategory(catRaw);
           if (notesRaw) setNotes(notesRaw);
-          if (actRaw) {
+
+          if (activityRaw) {
             try {
-              setActivity(JSON.parse(actRaw));
+              const parsed = JSON.parse(activityRaw);
+              setActivity(parsed);
             } catch (e) {
               console.error('Activity parse error:', e);
             }
           }
-          if (premiumFlag === 'true') setIncludePremium(true);
         }
 
         setLoading(false);
-      } catch (e: any) {
-        console.error('Project page load error:', e);
-        setError('Something went wrong loading this project.');
+      } catch (err: any) {
+        console.error('Unexpected project load error:', err);
+        setError('Unexpected error while loading project.');
         setLoading(false);
       }
     }
@@ -151,115 +166,142 @@ export default function ProjectPage() {
       let done = 0;
 
       phases.forEach((phase: any, pIndex: number) => {
-        const phaseId = phase.id || phase.name || `phase_${pIndex}`;
-        (phase.tasks || []).forEach((_: any, tIndex: number) => {
-          total++;
-          const taskId = `${phaseId}_task_${tIndex}`;
-          if (completion?.[phaseId]?.[taskId]) done++;
+        const phaseId = phase.id || `phase_${pIndex}`;
+        const tasks = phase.tasks || [];
+        tasks.forEach((task: any, tIndex: number) => {
+          const taskId = task.id || `task_${tIndex}`;
+          total += 1;
+          if (completion?.[phaseId]?.[taskId]) {
+            done += 1;
+          }
         });
       });
 
-      setProgress(total ? Math.round((done / total) * 100) : 0);
+      if (!total) {
+        setProgress(0);
+      } else {
+        setProgress(Math.round((done / total) * 100));
+      }
     } catch (e) {
-      console.error('Progress compute error:', e);
+      console.error('Completion compute error:', e);
       setProgress(0);
     }
   }, [completion, playbook]);
 
-  // === [4] LOADING / ERROR STATES ===
-  if (loading) {
+  // === [4] HANDLERS ===
+  function handleToggleTask(phaseId: string, taskId: string, value: boolean) {
+    setCompletion((prev) => {
+      const updated: CompletionState = {
+        ...prev,
+        [phaseId]: {
+          ...(prev[phaseId] || {}),
+          [taskId]: value,
+        },
+      };
+
+      if (typeof window !== 'undefined' && projectId) {
+        window.localStorage.setItem(
+          `manupilot_project_${projectId}_roadmap`,
+          JSON.stringify(updated)
+        );
+      }
+
+      return updated;
+    });
+  }
+
+  function handleUpdateNotes(text: string) {
+    setNotes(text);
+    if (typeof window !== 'undefined' && projectId) {
+      window.localStorage.setItem(
+        `manupilot_project_${projectId}_notes`,
+        text
+      );
+    }
+  }
+
+  function handleUpdateActivity(items: ActivityItem[]) {
+    setActivity(items);
+    if (typeof window !== 'undefined' && projectId) {
+      window.localStorage.setItem(
+        `manupilot_project_${projectId}_activity`,
+        JSON.stringify(items)
+      );
+    }
+  }
+
+  // Derived convenience
+  const free = playbook?.free || {};
+  const keyInfo = {
+    category: category || playbook?.category || 'General product',
+    sourcingMode: playbook?.sourcingMode || 'custom',
+    createdAt: project?.created_at,
+  };
+
+  // === [5] RENDER ===
+  if (loading && !project) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">Loading project…</p>
+      <main className="max-w-5xl mx-auto px-4 py-16">
+        <p className="text-sm text-slate-600">Loading project…</p>
       </main>
     );
   }
 
-  if (error || !project) {
+  if (error) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">{error || 'Project not found.'}</p>
-      </main>
-    );
-  }
-
-  const free = playbook?.free;
-
-  // === [5] PAGE LAYOUT ===
-  return (
-    <main className="min-h-screen bg-slate-50 pb-20">
-      <div className="max-w-6xl mx-auto pt-12 px-4 md:px-0 space-y-8">
-
-        {/* [5.1] HEADER */}
-        <ProjectHeader
-          project={project}
-          category={category}
-          progress={progress}
-          setShowRoadmap={setShowRoadmap}
-          setShowPlaybook={setShowPlaybook}
-        />
-
-        {/* [5.2] COMPONENTS & SUPPLIERS */}
-        {free && <ProjectComponents free={free} />}
-
-        {/* [5.3] KEY INFO */}
-        {free && <ProjectKeyInfo free={free} />}
-
-        {/* [5.3] MATERIALS & FEATURES (grouped like components) */}
-        {free && (
-          <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <div className="grid gap-4 md:grid-cols-2">
-            <ProjectMaterials free={free} />
-            <ProjectFeatures free={free} />
-           </div>
-          </section>
-        )}
-
-        {/* [5.4] MANUFACTURING APPROACH & RISKS (grouped) */}
-        {free && (
-          <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <div className="grid gap-4 md:grid-cols-[1.7fr_1.3fr]">
-             <ProjectApproach free={free} />
-             <ProjectRisks free={free} />
-         </div>
-          </section>
-        )}
-
-        {/* [5.5] TIMELINE & NEXT STEPS (grouped) */}
-        {free && (
-         <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-[1.5fr_1.5fr]">
-            <ProjectTimeline free={free} />
-            <ProjectNextSteps free={free} />
-         </div>
-        </section>
-    )}
-
-        {/* [5.7] NOTES & ACTIVITY LOG */}
-        <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
-          <ProjectNotes
-            projectId={projectId}
-            notes={notes}
-            setNotes={setNotes}
-            setActivity={setActivity}
-          />
-          <ProjectActivityLog activity={activity} />
+      <main className="max-w-5xl mx-auto px-4 py-16">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
         </div>
+      </main>
+    );
+  }
 
-        {/* [5.8] PREMIUM CTA (toggle-controlled) */}
-        {includePremium && <ProjectPremiumCTA />}
-      </div>
+  if (!project) {
+    return (
+      <main className="max-w-5xl mx-auto px-4 py-16">
+        <p className="text-sm text-slate-600">
+          Project not found or not available.
+        </p>
+      </main>
+    );
+  }
 
-      {/* [5.9] MODALS */}
-      <ProjectRoadmapModal
-        show={showRoadmap}
-        setShow={setShowRoadmap}
-        free={free}
+  return (
+    <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <ProjectHeader
+        project={project}
+        progress={progress}
+        category={keyInfo.category}
+        sourcingMode={keyInfo.sourcingMode}
+        onShowPlaybook={() => setShowPlaybook(true)}
+      />
+
+      <ProjectKeyInfo project={project} keyInfo={keyInfo} />
+
+      <section className="grid gap-6 md:grid-cols-2">
+        <ProjectMaterials materials={free.materials} />
+        <ProjectFeatures features={free.features} />
+      </section>
+
+      <section className="grid gap-6 md:grid-cols-2">
+        <ProjectApproach approach={free.approach} />
+        <ProjectRisks risks={free.risks} />
+      </section>
+
+      <section className="grid gap-6 md:grid-cols-2">
+        <ProjectTimeline timeline={free.timeline} />
+        <ProjectNextSteps nextSteps={free.nextSteps} />
+      </section>
+
+      <ProjectNotes notes={notes} onUpdate={handleUpdateNotes} />
+
+      <ProjectActivity
         completion={completion}
-        setCompletion={setCompletion}
+        onToggleTask={handleToggleTask}
         projectId={projectId}
         activity={activity}
-        setActivity={setActivity}
+        setActivity={handleUpdateActivity}
       />
 
       <ProjectPlaybookModal

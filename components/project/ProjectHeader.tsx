@@ -9,8 +9,9 @@ type ProjectHeaderProps = {
   project: any;
   category: string;
   progress: number;
-  setShowRoadmap: (open: boolean) => void;
-  setShowPlaybook: (open: boolean) => void;
+  // make these optional – they might not always be passed from the page
+  setShowRoadmap?: (open: boolean) => void;
+  setShowPlaybook?: (open: boolean) => void;
 };
 
 // === [2] HELPERS ===
@@ -84,15 +85,17 @@ export default function ProjectHeader({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setShowRoadmap(true)}
-              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+              onClick={() => setShowRoadmap && setShowRoadmap(true)}
+              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              disabled={!setShowRoadmap}
             >
               ✅ Roadmap & checklist
             </button>
             <button
               type="button"
-              onClick={() => setShowPlaybook(true)}
-              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+              onClick={() => setShowPlaybook && setShowPlaybook(true)}
+              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              disabled={!setShowPlaybook}
             >
               📄 View full playbook
             </button>

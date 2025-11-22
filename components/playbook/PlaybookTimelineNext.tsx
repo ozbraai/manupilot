@@ -12,15 +12,23 @@ type PlaybookTimelineNextProps = {
 };
 
 // === [2] HELPERS ===
-function arrayToLines(arr: string[]) {
-  return (arr || []).join('\n');
+function arrayToLines(arr: string | string[] | undefined): string {
+  if (Array.isArray(arr)) return arr.join('\n');
+  if (typeof arr === 'string') return arr;    
+  return '';
 }
 
-function linesToArray(text: string) {
+function linesToArray(text: string): string[] {
   return text
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function ensureArray(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') return linesToArray(value);
+  return [];
 }
 
 // === [3] COMPONENT ROOT ===
@@ -29,8 +37,10 @@ export default function PlaybookTimelineNext({
   onUpdateTimeline,
   onUpdateNextSteps,
 }: PlaybookTimelineNextProps) {
-  const timeline = free?.timeline || [];
-  const nextSteps = free?.nextSteps || [];
+
+  // Convert free.timeline & free.nextSteps into guaranteed arrays
+  const timeline = ensureArray(free?.timeline);
+  const nextSteps = ensureArray(free?.nextSteps);
 
   const [editTimeline, setEditTimeline] = useState(false);
   const [editNext, setEditNext] = useState(false);
@@ -68,7 +78,8 @@ export default function PlaybookTimelineNext({
 
   return (
     <section className="grid gap-6 md:grid-cols-2">
-      {/* === [3.1] TIMELINE CARD === */}
+
+      {/* === TIMELINE CARD === */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
         <div className="flex items-start justify-between gap-2 mb-2">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -82,6 +93,7 @@ export default function PlaybookTimelineNext({
             ✏️ Edit
           </button>
         </div>
+
         {!editTimeline ? (
           timeline.length ? (
             <div className="relative pl-4">
@@ -128,7 +140,7 @@ export default function PlaybookTimelineNext({
         )}
       </div>
 
-      {/* === [3.2] NEXT STEPS CARD === */}
+      {/* === NEXT STEPS CARD === */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
         <div className="flex items-start justify-between gap-2 mb-2">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -142,6 +154,7 @@ export default function PlaybookTimelineNext({
             ✏️ Edit
           </button>
         </div>
+
         {!editNext ? (
           nextSteps.length ? (
             <ol className="list-decimal list-inside text-sm text-slate-700 space-y-1">

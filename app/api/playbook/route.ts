@@ -1,195 +1,236 @@
 // app/api/playbook/route.ts
-
 import { NextResponse } from 'next/server';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+type Question = {
+  key: string;
+  label: string;
+  title: string;
+  helper: string;
+  placeholder: string;
+  suggestedAnswer?: string;
+};
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { idea, productName, questions, answers } = body || {};
 
-    if (!idea) {
-      return NextResponse.json(
-        { error: 'Missing idea input.' },
-        { status: 400 }
-      );
-    }
+    const {
+      idea,
+      productName,
+      category,
+      coreProduct,
+      componentsInfo,
+      selectedSubProducts,
+      questions,
+      answers,
+      constraints,
+      costEstimate,
+      sourcingMode,
+    } = body as {
+      idea: string;
+      productName: string;
+      category?: string;
+      coreProduct?: string;
+      componentsInfo?: any;
+      selectedSubProducts?: any[];
+      questions?: Question[];
+      answers?: Record<string, string>;
+      constraints?: any;
+      costEstimate?: any;
+      sourcingMode?: 'white-label' | 'custom' | 'auto';
+    };
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      console.error('OPENAI_API_KEY is not set');
-      return NextResponse.json(
-        { error: 'AI service not configured.' },
-        { status: 500 }
-      );
-    }
+    const safeCategory = category || 'general product';
+    const safeCoreProduct = coreProduct || productName || idea || 'the product';
+    const mode: 'white-label' | 'custom' =
+      sourcingMode === 'white-label' ? 'white-label' : 'custom';
 
-    // --- Build founder Q&A text for context ---
-    const qaText =
-      Array.isArray(questions) && answers
-        ? questions
-            .map((q: any, idx: number) => {
-              const key = q.key;
-              const answer = answers[key] || '';
-              return `Q${idx + 1}: ${q.title}\nA${idx + 1}: ${answer}`;
-            })
-            .join('\n\n')
-        : '';
+    const systemPrompt = `
+You are ManuBot, an expert manufacturing playbook generator for ManuPilot.
 
-    // --- Prompt that includes components block ---
-    const prompt = `
-You are ManuBot, an expert manufacturing strategist.
+Your job is to take the user's idea, clarified details, constraints and sourcing mode,
+and output a structured playbook object plus a phased roadmap.
 
-You will receive:
-- A product idea
-- A short product name
-- The founder's answers to some clarifying questions
-
-Your job is to generate a FREE manufacturing playbook in **strict JSON**.
-
-The playbook must be tailored to the specific product category (e.g. knives, camping gear, electronics, toys, kitchen tools, etc.).
-
-----------------------------------------
-JSON STRUCTURE TO OUTPUT
-----------------------------------------
+You must output STRICT JSON with this shape:
 
 {
-  "productName": "string",
-  "free": {
-    "summary": "string",
-    "targetCustomer": "string",
-    "keyFeatures": ["..."],
-    "materials": ["..."],
-    "manufacturingApproach": {
-      "recommendedRegions": ["..."],
-      "rationale": "string",
-      "risks": ["..."]
+  "playbook": {
+    "productName": "short name",
+    "category": "product category",
+    "sourcingMode": "white-label" or "custom",
+    "free": {
+      "summary": "2–3 paragraphs describing what the product is and what the founder is trying to achieve.",
+      "targetCustomer": "Who this is for and why they care.",
+      "materials": "Key materials and finishes you recommend.",
+      "features": "Headline features and any variants/sub-products that matter.",
+      "approach": "High-level sourcing and manufacturing approach.",
+      "risks": "Realistic risks and trade-offs the founder should know.",
+      "timeline": "High-level timeline expectations and key gates.",
+      "nextSteps": "3–7 immediate, concrete actions."
     },
-    "pricing": {
-      "positioning": "string",
-      "insight": "string"
-    },
-    "timeline": ["..."],
-    "nextSteps": ["..."],
     "roadmapPhases": [
       {
-        "id": "string",
-        "name": "string",
-        "description": "string",
-        "tasks": ["task 1", "task 2", "task 3"]
+        "id": "phase_1",
+        "title": "Phase title",
+        "description": "1–2 sentence overview.",
+        "tasks": [
+          {
+            "id": "task_1",
+            "title": "Task title",
+            "detail": "What needs to be done and why.",
+            "ownerHint": "Founder / sourcing agent / engineer / designer"
+          }
+        ]
       }
-    ],
-    "components": {
-      "estimatedComponentCount": 0,
-      "subProducts": ["..."],
-      "componentList": ["..."],
-      "supplierTypes": ["..."],
-      "notes": "string"
-    }
+    ]
   }
 }
 
-----------------------------------------
-HOW TO THINK ABOUT COMPONENTS
-----------------------------------------
-- Break the described product into logical physical components and sub-products.
-- Identify the core product and any obvious add-ons or accessories.
-- Think like a manufacturing engineer:
-  - What separate parts must be produced?
-  - Which parts are usually handled by different suppliers?
-  - What is a realistic component breakdown for this category?
+White label behaviour (sourcingMode = "white-label"):
+- Assume the core product already exists in factories.
+- Focus the approach, risks, and roadmap on:
+  - clarifying minimum acceptable quality
+  - selecting and shortlisting suppliers
+  - requesting and comparing samples
+  - tweaking spec where it is realistic (colour, finish, accessories, packaging)
+  - branding, packaging, labelling and inserts
+  - basic compliance and product safety for markets mentioned
+- Do NOT pretend they are re-inventing the product mechanically.
 
-Examples of thinking (DO NOT output these exact texts):
+Custom behaviour (sourcingMode = "custom"):
+- Assume the user wants something meaningfully different or new.
+- Focus the approach, risks and roadmap on:
+  - defining functional goals and differentiation vs existing products
+  - drawings and engineering (what exists, what is missing)
+  - prototypes and iteration
+  - tooling decisions and amortisation
+  - deeper QC and pre-production checks
+  - IP (design registration, patents) where relevant
 
-- For a motorised rotisserie:
-  - Components: motor housing, spit rod, forks, fasteners, heat shield, carry bag.
-  - Supplier types: metal fabrication, motor / electronics assembly, textile / bag maker.
-
-- For a folding camping table:
-  - Components: frame, legs, hinges, tabletop, screws, carry bag.
-  - Supplier types: metal fabrication, woodworking / board supplier, textile / bag maker.
-
-- For a chef knife:
-  - Components: blade, handle scales, pins, sheath, packaging.
-  - Supplier types: knife forge / blade maker, handle shop, sheath maker, packaging supplier.
-
-Make sure components is always filled with **realistic guesses** even if the founder didn't mention them explicitly. You are allowed to infer common sense things like boxes, carry bags, screws, hinges, etc.
-
-----------------------------------------
-INPUT CONTEXT
-----------------------------------------
-
-Idea:
-"${idea}"
-
-Short product name:
-"${productName || ''}"
-
-Founder Q&A:
-${qaText}
-
-----------------------------------------
-TASK
-----------------------------------------
-Return ONLY the JSON object described above. No commentary, no markdown, no extra text.
+General rules:
+- Use British/Australian spelling where it matters (colour, metre).
+- Be concrete and practical, not academic.
+- Do not mention "sourcingMode" directly to the user; instead adjust tone and content.
+- Keep phases to 5–7 total, each with 3–6 tasks.
+- Tailor everything to the specific product, idea, components and constraints provided.
 `;
 
-    // --- Call OpenAI Chat Completions ---
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: 'You output only valid JSON.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.4,
-        max_tokens: 1800,
-      }),
+    const componentsSummary = componentsInfo?.components
+      ? Object.entries(componentsInfo.components as Record<string, string[]>)
+          .map(([section, items]) => `${section}: ${items.join(', ')}`)
+          .join(' | ')
+      : '(none)';
+
+    const subProductsSummary =
+      selectedSubProducts && selectedSubProducts.length
+        ? selectedSubProducts.map((sp: any) => sp.label || sp.id).join(', ')
+        : '(none)';
+
+    const qAndA =
+      questions && questions.length
+        ? questions
+            .map((q) => {
+              const val = (answers && answers[q.key]) || '';
+              return `Q: ${q.title}\nA: ${val}`;
+            })
+            .join('\n\n')
+        : '(no additional questions answered)';
+
+    const constraintsSummary = constraints
+      ? JSON.stringify(constraints, null, 2)
+      : '(none)';
+    const costSummary = costEstimate
+      ? JSON.stringify(costEstimate, null, 2)
+      : '(none)';
+
+    const userPrompt = `
+idea:
+${idea || '(none)'}
+
+productName:
+${productName || '(none)'}
+
+category:
+${safeCategory}
+
+coreProduct:
+${safeCoreProduct}
+
+sourcingMode:
+${mode}
+
+componentsInfo (raw JSON):
+${JSON.stringify(componentsInfo || {}, null, 2)}
+
+components summary:
+${componentsSummary}
+
+selectedSubProducts:
+${subProductsSummary}
+
+constraints (JSON):
+${constraintsSummary}
+
+costEstimate (JSON):
+${costSummary}
+
+Follow up questions and answers:
+${qAndA}
+
+Now generate the playbook JSON.
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.35,
     });
 
-    const raw = await openaiRes.text();
-    // Helpful for debugging if needed:
-    // console.log('OpenAI raw response for /api/playbook:', raw);
-
-    if (!openaiRes.ok) {
-      console.error('OpenAI error:', raw);
+    const raw = completion.choices[0]?.message?.content;
+    if (!raw) {
       return NextResponse.json(
-        { error: 'AI failed to generate playbook.' },
+        { error: 'No response from AI when generating playbook' },
         { status: 500 }
       );
     }
 
-    let playbook: any = null;
-
+    let json: any;
     try {
-      // Because we used response_format: json_object,
-      // the `raw` body itself should be valid JSON with the JSON object in `choices[0].message.content`.
-      const parsed = JSON.parse(raw);
-      const content = parsed.choices?.[0]?.message?.content || '{}';
-      playbook = JSON.parse(content);
+      json = JSON.parse(raw);
     } catch (e) {
-      console.error('Failed to parse AI JSON for playbook:', e, raw);
+      console.error('Playbook route JSON parse error:', raw);
       return NextResponse.json(
-        { error: 'AI response was not valid JSON.' },
+        { error: 'Model returned invalid JSON when generating playbook' },
         { status: 500 }
       );
     }
 
-    // Optionally ensure we keep the productName consistent
-    if (!playbook.productName && productName) {
-      playbook.productName = productName;
+    if (!json.playbook) {
+      return NextResponse.json(
+        { error: 'Model did not return a playbook object' },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ playbook });
-  } catch (e: any) {
-    console.error('Playbook route error:', e);
+    // Light sanity patch
+    json.playbook.productName = json.playbook.productName || productName || safeCoreProduct;
+    json.playbook.category = json.playbook.category || safeCategory;
+    json.playbook.sourcingMode = mode;
+
+    return NextResponse.json(json);
+  } catch (err: any) {
+    console.error('Playbook route error:', err);
     return NextResponse.json(
-      { error: 'Failed to generate playbook.' },
+      { error: err?.message || 'Unexpected error in playbook route' },
       { status: 500 }
     );
   }
