@@ -2,21 +2,37 @@
 
 import { useEffect, useState } from "react";
 
+type LegacyFree = {
+  materials?: string | string[];
+  features?: string | string[];
+};
+
 type Props = {
-  materials: string | string[] | undefined;
-  features: string | string[] | undefined;
-  onUpdate: (vals: { materials: string[]; features: string[] }) => void;
+  // New-style props
+  materials?: string | string[];
+  features?: string | string[];
+  onUpdate?: (vals: { materials: string[]; features: string[] }) => void;
+
+  // Legacy props (how playbook-summary currently calls it)
+  free?: LegacyFree;
+  onUpdateMaterials?: (materials: string[]) => void;
+  onUpdateFeatures?: (features: string[]) => void;
 };
 
 export default function PlaybookMaterialsFeatures({
   materials,
   features,
+  free,
   onUpdate,
+  onUpdateMaterials,
+  onUpdateFeatures,
 }: Props) {
   // === HELPERS ===
-  function arrayToLines(arr: string | string[] | undefined): string {
+  function arrayToLines(
+    arr: string | string[] | undefined
+  ): string {
     if (Array.isArray(arr)) return arr.join("\n");
-    if (typeof arr === "string") return arr; // already a string
+    if (typeof arr === "string") return arr;
     return "";
   }
 
@@ -27,24 +43,48 @@ export default function PlaybookMaterialsFeatures({
       .filter(Boolean);
   }
 
-  const [materialsText, setMaterialsText] = useState(arrayToLines(materials));
-  const [featuresText, setFeaturesText] = useState(arrayToLines(features));
+  // Prefer values from `free` if provided, otherwise use direct props
+  const initialMaterialsSource =
+    free?.materials ?? materials;
+  const initialFeaturesSource =
+    free?.features ?? features;
 
-  // Sync up if parent updates
+  const [materialsText, setMaterialsText] = useState(
+    arrayToLines(initialMaterialsSource)
+  );
+  const [featuresText, setFeaturesText] = useState(
+    arrayToLines(initialFeaturesSource)
+  );
+
+  // Keep drafts in sync when parent changes
   useEffect(() => {
-    setMaterialsText(arrayToLines(materials));
-  }, [materials]);
+    setMaterialsText(
+      arrayToLines(free?.materials ?? materials)
+    );
+  }, [free?.materials, materials]);
 
   useEffect(() => {
-    setFeaturesText(arrayToLines(features));
-  }, [features]);
+    setFeaturesText(
+      arrayToLines(free?.features ?? features)
+    );
+  }, [free?.features, features]);
 
-  // Handle saves
   function handleBlur() {
-    onUpdate({
-      materials: linesToArray(materialsText),
-      features: linesToArray(featuresText),
-    });
+    const mats = linesToArray(materialsText);
+    const feats = linesToArray(featuresText);
+
+    // New unified callback
+    if (onUpdate) {
+      onUpdate({ materials: mats, features: feats });
+    }
+
+    // Legacy callbacks
+    if (onUpdateMaterials) {
+      onUpdateMaterials(mats);
+    }
+    if (onUpdateFeatures) {
+      onUpdateFeatures(feats);
+    }
   }
 
   return (
@@ -58,7 +98,9 @@ export default function PlaybookMaterialsFeatures({
           value={materialsText}
           onChange={(e) => setMaterialsText(e.target.value)}
           onBlur={handleBlur}
-          placeholder="Example: Stainless steel 304&#10;Heat-resistant nylon handle&#10;Food-grade silicone feet"
+          placeholder={
+            "Example: Stainless steel 304\nHeat-resistant nylon handle\nFood-grade silicone feet"
+          }
         />
       </div>
 
@@ -71,7 +113,9 @@ export default function PlaybookMaterialsFeatures({
           value={featuresText}
           onChange={(e) => setFeaturesText(e.target.value)}
           onBlur={handleBlur}
-          placeholder="Example: Compact folding design&#10;Adjustable airflow&#10;Rotisserie mounting points"
+          placeholder={
+            "Example: Compact folding design\nAdjustable airflow\nRotisserie mounting points"
+          }
         />
       </div>
     </div>
