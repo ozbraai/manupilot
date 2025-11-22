@@ -9,9 +9,17 @@ type ProjectHeaderProps = {
   project: any;
   category: string;
   progress: number;
-  // make these optional – they might not always be passed from the page
+
+  // Optional sourcing info for display
+  sourcingMode?: string;
+
+  // Legacy handlers (boolean flag setters)
   setShowRoadmap?: (open: boolean) => void;
   setShowPlaybook?: (open: boolean) => void;
+
+  // New-style handlers (direct callbacks)
+  onShowRoadmap?: () => void;
+  onShowPlaybook?: () => void;
 };
 
 // === [2] HELPERS ===
@@ -21,17 +29,42 @@ function statusLabel(progress: number) {
   return 'In progress';
 }
 
+function sourcingLabel(mode?: string) {
+  if (mode === 'white-label') return 'White label / private label';
+  if (mode === 'custom') return 'Custom product';
+  if (!mode) return null;
+  return mode;
+}
+
 // === [3] COMPONENT ROOT ===
 export default function ProjectHeader({
   project,
   category,
   progress,
+  sourcingMode,
   setShowRoadmap,
   setShowPlaybook,
+  onShowRoadmap,
+  onShowPlaybook,
 }: ProjectHeaderProps) {
   const createdDate = project?.created_at
     ? new Date(project.created_at).toLocaleDateString()
     : '';
+
+  const sourcingText = sourcingLabel(sourcingMode);
+
+  const handleRoadmapClick = () => {
+    if (setShowRoadmap) setShowRoadmap(true);
+    else if (onShowRoadmap) onShowRoadmap();
+  };
+
+  const handlePlaybookClick = () => {
+    if (setShowPlaybook) setShowPlaybook(true);
+    else if (onShowPlaybook) onShowPlaybook();
+  };
+
+  const roadmapEnabled = !!setShowRoadmap || !!onShowRoadmap;
+  const playbookEnabled = !!setShowPlaybook || !!onShowPlaybook;
 
   return (
     // === [3.1] HEADER WRAPPER ===
@@ -53,6 +86,14 @@ export default function ProjectHeader({
             {createdDate && <span>Created {createdDate}</span>}
             <span>Status: {statusLabel(progress)}</span>
           </div>
+
+          {sourcingText && (
+            <div className="mt-1 flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                {sourcingText}
+              </span>
+            </div>
+          )}
 
           {project?.description && (
             <p className="mt-3 text-sm text-slate-700 max-w-2xl">
@@ -85,17 +126,17 @@ export default function ProjectHeader({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setShowRoadmap && setShowRoadmap(true)}
-              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-              disabled={!setShowRoadmap}
+              onClick={handleRoadmapClick}
+              disabled={!roadmapEnabled}
+              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ✅ Roadmap & checklist
             </button>
             <button
               type="button"
-              onClick={() => setShowPlaybook && setShowPlaybook(true)}
-              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-              disabled={!setShowPlaybook}
+              onClick={handlePlaybookClick}
+              disabled={!playbookEnabled}
+              className="flex-1 inline-flex items-center justify-center px-3 py-2 rounded-full border border-slate-300 text-[11px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               📄 View full playbook
             </button>
