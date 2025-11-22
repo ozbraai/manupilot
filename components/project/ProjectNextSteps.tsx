@@ -1,12 +1,12 @@
-// components/project/ProjectRisks.tsx
+// components/project/ProjectNextSteps.tsx
 
 'use client';
 
 import React from 'react';
 
-type ProjectRisksProps = {
-  // Can be a single string, an array, or undefined
-  risks: string | string[] | undefined;
+type ProjectNextStepsProps = {
+  // Can be a single string, an array, or undefined from the playbook
+  nextSteps: string | string[] | undefined;
 };
 
 function linesToArray(text: string): string[] {
@@ -22,25 +22,27 @@ function ensureArray(value: string | string[] | undefined): string[] {
   return [];
 }
 
-export default function ProjectRisks({ risks }: ProjectRisksProps) {
-  const items = ensureArray(risks);
+export default function ProjectNextSteps({
+  nextSteps,
+}: ProjectNextStepsProps) {
+  const items = ensureArray(nextSteps);
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-slate-900 mb-2">
-        Key risks & trade-offs
+        Suggested next steps
       </h3>
       {items.length ? (
-        <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-          {items.map((risk, idx) => (
-            <li key={idx}>{risk}</li>
+        <ol className="list-decimal list-inside text-sm text-slate-700 space-y-1">
+          {items.map((step, idx) => (
+            <li key={idx}>{step}</li>
           ))}
-        </ul>
+        </ol>
       ) : (
         <p className="text-sm text-slate-600">
-          No specific risks have been documented yet. As you move forward, note
-          down things like MOQ exposure, tooling costs, lead times, or supplier
-          reliability concerns here.
+          No specific next steps have been documented yet. As you progress,
+          use this section to capture the most important actions to keep the
+          project moving.
         </p>
       )}
     </div>
