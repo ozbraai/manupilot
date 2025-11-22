@@ -5,26 +5,40 @@
 import React from 'react';
 
 type ProjectFeaturesProps = {
-  free: any;
+  // Can be a single string, array of strings, or undefined from the playbook
+  features: string | string[] | undefined;
 };
 
-export default function ProjectFeatures({ free }: ProjectFeaturesProps) {
-  const features = free?.keyFeatures || [];
+function linesToArray(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function ensureArray(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') return linesToArray(value);
+  return [];
+}
+
+export default function ProjectFeatures({ features }: ProjectFeaturesProps) {
+  const items = ensureArray(features);
 
   return (
-    <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col">
-      <h2 className="text-sm font-semibold text-slate-900 mb-2">
-        ⭐ Key features
-      </h2>
-      {features.length ? (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <h3 className="text-sm font-semibold text-slate-900 mb-2">
+        Key features
+      </h3>
+      {items.length ? (
         <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-          {features.map((f: string, idx: number) => (
+          {items.map((f, idx) => (
             <li key={idx}>{f}</li>
           ))}
         </ul>
       ) : (
         <p className="text-sm text-slate-600">
-          No key features captured yet.
+          No key features have been defined yet in this playbook.
         </p>
       )}
     </div>
