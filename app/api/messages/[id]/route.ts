@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     const cookieStore = await cookies();
 
@@ -32,7 +32,7 @@ export async function GET(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const conversationId = params.id;
+    const { id: conversationId } = await params;
 
     // Verify user is part of this conversation
     const { data: conversation, error: convError } = await supabase
@@ -76,7 +76,7 @@ export async function GET(
 
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     const cookieStore = await cookies();
 
@@ -104,7 +104,7 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const conversationId = params.id;
+    const { id: conversationId } = await params;
     const body = await request.json();
     const { content } = body;
 
