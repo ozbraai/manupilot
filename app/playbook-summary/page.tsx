@@ -18,6 +18,7 @@ export default function PlaybookSummaryPage() {
   const router = useRouter();
   const [playbook, setPlaybook] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [creatingProject, setCreatingProject] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -39,42 +40,52 @@ export default function PlaybookSummaryPage() {
 
   async function handleCreateProject() {
     if (!playbook) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert('Please log in to save this project.');
-      return;
+    setCreatingProject(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('Please log in to save this project.');
+        return;
+      }
+
+      const { data: project, error } = await supabase
+        .from('projects')
+        .insert({
+          title: playbook.productName || 'New Project',
+          description: playbook.free.summary,
+          user_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating project:', error);
+        alert('Failed to create project.');
+        return;
+      }
+
+      // Save locked playbook
+      window.localStorage.setItem(`manupilot_playbook_project_${project.id}`, JSON.stringify(playbook));
+
+      // Initialize Roadmap Progress
+      const roadmapState: any = {};
+      playbook.free.roadmapPhases?.forEach((phase: any) => {
+        // Initialize empty state
+      });
+      window.localStorage.setItem(`manupilot_project_${project.id}_roadmap`, JSON.stringify(roadmapState));
+
+      // Clear draft
+      window.localStorage.removeItem('manupilotPlaybook');
+
+      router.push(`/projects/${project.id}`);
+    } finally {
+      setCreatingProject(false);
     }
+  }
 
-    const { data: project, error } = await supabase
-      .from('projects')
-      .insert({
-        title: playbook.productName || 'New Project',
-        description: playbook.free.summary,
-        user_id: user.id,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating project:', error);
-      alert('Failed to create project.');
-      return;
-    }
-
-    // Save locked playbook
-    window.localStorage.setItem(`manupilot_playbook_project_${project.id}`, JSON.stringify(playbook));
-
-    // Initialize Roadmap Progress
-    const roadmapState: any = {};
-    playbook.free.roadmapPhases?.forEach((phase: any) => {
-      // Initialize empty state
-    });
-    window.localStorage.setItem(`manupilot_project_${project.id}_roadmap`, JSON.stringify(roadmapState));
-
-    // Clear draft
+  function handleCreateNew() {
     window.localStorage.removeItem('manupilotPlaybook');
-
-    router.push(`/projects/${project.id}`);
+    router.push('/playbook-wizard');
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">Loading...</div>;
@@ -133,7 +144,11 @@ export default function PlaybookSummaryPage() {
         />
 
         {/* 6. CREATE ACTION */}
-        <PlaybookActions onCreateProject={handleCreateProject} />
+        <PlaybookActions
+          creatingProject={creatingProject}
+          onCreateProject={handleCreateProject}
+          onCreateNew={handleCreateNew}
+        />
       </div>
     </main>
   );
