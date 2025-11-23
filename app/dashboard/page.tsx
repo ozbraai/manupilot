@@ -3,6 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  TrashIcon,
+  ChartBarIcon,
+  DocumentTextIcon,
+  Squares2X2Icon,
+  FunnelIcon,
+  ArrowRightIcon,
+} from '@heroicons/react/24/outline';
 
 // === [1] TYPES ===
 type Project = {
@@ -34,7 +44,7 @@ function getStatusLabelFromProgress(progress: number): string {
   return 'Not started';
 }
 
-function getStatusDotClass(progress: number): string {
+function getStatusColor(progress: number) {
   if (progress >= 100) return 'bg-emerald-500';
   if (progress > 0) return 'bg-sky-500';
   return 'bg-slate-300';
@@ -215,7 +225,8 @@ export default function DashboardPage() {
   }, [projects, projectProgress, search, statusFilter, sortOrder]);
 
   // === [9] HANDLERS ===
-  function handleDelete(projectId: string) {
+  function handleDelete(e: React.MouseEvent, projectId: string) {
+    e.stopPropagation();
     const yes = window.confirm(
       'Are you sure you want to delete this project?'
     );
@@ -240,285 +251,242 @@ export default function DashboardPage() {
     const d = new Date(value);
     return d.toLocaleDateString(undefined, {
       day: '2-digit',
-      month: '2-digit',
+      month: 'short',
       year: 'numeric',
     });
   }
 
   // === [10] RENDER ===
   return (
-    <main className="min-h-screen bg-slate-50 pb-20">
-      <div className="max-w-6xl mx-auto pt-12 px-4 md:px-0 space-y-8">
-        {/* HEADER */}
-        <section>
-          <h1 className="text-3xl font-semibold text-slate-900 mb-2">
-            Dashboard
-          </h1>
-          <p className="text-sm text-slate-600">
-            View your products in development, draft playbooks, and roadmap progress across ManuPilot.
-          </p>
-        </section>
-
-        {/* STATS ROW */}
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-              Projects
-            </p>
-            <p className="text-2xl font-semibold text-slate-900">
-              {totalProjects}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              ManuPilot workspaces currently in your account.
-            </p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-              Average progress
-            </p>
-            <p className="text-2xl font-semibold text-slate-900">
-              {averageProgress}%
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Based on roadmap tasks completed across projects.
-            </p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+    <main className="min-h-screen bg-slate-50/50 pb-20">
+      {/* HERO SECTION */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-6xl mx-auto px-6 py-10 md:py-12">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-                Next step
-              </p>
-              <p className="text-xs text-slate-600">
-                Continue building momentum on existing projects or explore a new idea.
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                Dashboard
+              </h1>
+              <p className="mt-2 text-slate-600 max-w-xl">
+                Manage your manufacturing projects, track roadmap progress, and refine your product specifications.
               </p>
             </div>
-            <div className="mt-3 flex justify-end">
+            <div className="flex gap-3">
               <button
-                type="button"
                 onClick={() => router.push('/playbook-wizard')}
-                className="inline-flex items-center rounded-full bg-sky-600 text-white text-xs font-medium px-4 py-2 hover:bg-sky-500"
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:-translate-y-0.5 transition-all duration-200"
               >
-                + Start new Playbook
+                <PlusIcon className="h-5 w-5" />
+                New Project
               </button>
             </div>
           </div>
-        </section>
+        </div>
+      </div>
 
-        {/* DRAFT PLAYBOOK OR CTA */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          {draftPlaybook ? (
-            <>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-                Draft playbook
-              </p>
-              <h2 className="text-base font-semibold text-slate-900">
-                {draftPlaybook.productName || 'Untitled concept'}
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                {draftPlaybook.free?.summary ||
-                  'You have a playbook in progress. Continue refining it or start a new idea.'}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => router.push('/playbook-summary')}
-                  className="px-4 py-2 rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                >
-                  Continue playbook
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.push('/playbook-wizard')}
-                  className="px-4 py-2 rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                >
-                  Start new idea
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">
-                Ready for your next idea?
-              </p>
-              <h2 className="text-base font-semibold text-slate-900">
-                What exciting product are you designing next?
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Start a new ManuPilot playbook to explore a new product concept and let the
-                AI help you map out components, suppliers, and manufacturing strategy.
-              </p>
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => router.push('/playbook-wizard')}
-                  className="px-5 py-2 rounded-full bg-sky-600 text-white text-xs font-medium hover:bg-sky-500"
-                >
-                  Start new idea
-                </button>
-              </div>
-            </>
-          )}
-        </section>
+      <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
 
-        {/* PROJECT TOOLBAR */}
-        <section className="space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            {/* Search */}
-            <div className="relative w-full md:w-1/3">
-              <span className="absolute left-3 top-2.5 text-slate-400 text-sm">
-                🔍
-              </span>
-              <input
-                type="text"
-                placeholder="Search projects..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-sky-500"
-              />
+        {/* STATS & DRAFT ROW */}
+        <section className="grid gap-6 md:grid-cols-12">
+          {/* STATS */}
+          <div className="md:col-span-8 grid gap-4 sm:grid-cols-3">
+            <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <Squares2X2Icon className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">Total Projects</p>
+              </div>
+              <p className="text-3xl font-bold text-slate-900">{totalProjects}</p>
             </div>
 
-            {/* Filters + Sort */}
-            <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
-              {/* Status filter */}
-              <div className="inline-flex rounded-full bg-slate-100 p-1">
-                {(['all', 'not-started', 'in-progress', 'completed'] as StatusKey[]).map(
-                  (key) => {
-                    const label =
-                      key === 'all'
-                        ? 'All'
-                        : key === 'not-started'
-                        ? 'Not started'
-                        : key === 'in-progress'
-                        ? 'In progress'
-                        : 'Completed';
-                    const active = statusFilter === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setStatusFilter(key)}
-                        className={
-                          'px-3 py-1 rounded-full font-medium ' +
-                          (active
-                            ? 'bg-sky-600 text-white'
-                            : 'bg-transparent text-slate-700')
-                        }
-                      >
-                        {label}
-                      </button>
-                    );
-                  }
-                )}
+            <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <ChartBarIcon className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">Avg. Progress</p>
               </div>
-
-              {/* Sort */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                  Sort
-                </span>
-                <select
-                  className="border border-slate-300 text-xs rounded-full px-3 py-1 bg-white"
-                  value={sortOrder}
-                  onChange={(e) =>
-                    setSortOrder(e.target.value as SortOption)
-                  }
-                >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                </select>
-              </div>
+              <p className="text-3xl font-bold text-slate-900">{averageProgress}%</p>
             </div>
+
+            <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-slate-50 text-slate-600 rounded-lg">
+                  <DocumentTextIcon className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">Active Drafts</p>
+              </div>
+              <p className="text-3xl font-bold text-slate-900">{draftPlaybook ? 1 : 0}</p>
+            </div>
+          </div>
+
+          {/* DRAFT PLAYBOOK CARD (IF EXISTS) OR PROMO */}
+          <div className="md:col-span-4">
+            {draftPlaybook ? (
+              <div className="h-full rounded-2xl bg-white p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex flex-col justify-between group cursor-pointer hover:border-blue-200 transition-all" onClick={() => router.push('/playbook-summary')}>
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                      Draft in progress
+                    </span>
+                    <ArrowRightIcon className="h-4 w-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                  </div>
+                  <h3 className="font-semibold text-slate-900 mb-1 line-clamp-1">
+                    {draftPlaybook.productName || 'Untitled Project'}
+                  </h3>
+                  <p className="text-sm text-slate-500 line-clamp-2">
+                    {draftPlaybook.free?.summary || 'Continue refining your product idea...'}
+                  </p>
+                </div>
+                <button className="mt-4 w-full rounded-lg bg-slate-50 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                  Continue Editing
+                </button>
+              </div>
+            ) : (
+              <div className="h-full rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6 border border-blue-100 flex flex-col justify-center items-start text-left">
+                <h3 className="font-semibold text-blue-900 mb-2">Start a new idea</h3>
+                <p className="text-sm text-blue-700/80 mb-4">
+                  Use the AI wizard to generate a full manufacturing spec in minutes.
+                </p>
+                <button
+                  onClick={() => router.push('/playbook-wizard')}
+                  className="text-sm font-semibold text-blue-700 hover:text-blue-800 flex items-center gap-1"
+                >
+                  Launch Wizard <ArrowRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* PROJECT CARDS GRID */}
-        <section>
+        {/* MAIN CONTENT */}
+        <section className="space-y-6">
+          {/* TOOLBAR */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-xl font-bold text-slate-900">Your Projects</h2>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Search */}
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full sm:w-64 pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                />
+              </div>
+
+              {/* Filter */}
+              <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200">
+                {(['all', 'in-progress', 'completed'] as const).map((key) => {
+                  const active = statusFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setStatusFilter(key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${active
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                    >
+                      {key === 'all' ? 'All' : key === 'in-progress' ? 'Active' : 'Done'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* GRID */}
           {loadingProjects ? (
-            <p className="text-sm text-slate-500 mt-4">Loading projects…</p>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-48 rounded-2xl bg-slate-100 animate-pulse" />
+              ))}
+            </div>
           ) : error ? (
-            <p className="text-sm text-red-600 mt-4">{error}</p>
+            <div className="rounded-2xl bg-red-50 p-6 text-center text-red-600 border border-red-100">
+              {error}
+            </div>
           ) : filteredProjects.length === 0 ? (
-            <p className="text-sm text-slate-500 mt-4">
-              No projects match your filters.
-            </p>
+            <div className="rounded-3xl border-2 border-dashed border-slate-200 p-12 text-center bg-slate-50/50">
+              <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4 text-slate-400">
+                <FunnelIcon className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">No projects found</h3>
+              <p className="text-slate-500 mt-1 max-w-sm mx-auto">
+                {search || statusFilter !== 'all'
+                  ? "Try adjusting your search or filters to find what you're looking for."
+                  : "Get started by creating your first manufacturing project."}
+              </p>
+              {(search || statusFilter !== 'all') && (
+                <button
+                  onClick={() => { setSearch(''); setStatusFilter('all'); }}
+                  className="mt-4 text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
           ) : (
-            <div className="mt-3 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredProjects.map((project) => {
                 const progress = projectProgress[project.id] ?? 0;
                 const statusLabel = getStatusLabelFromProgress(progress);
-                const statusDotClass = getStatusDotClass(progress);
+                const colors = getStatusColor(progress);
                 const createdLabel = formatDate(project.created_at);
                 const category = projectCategories[project.id] || 'Other';
 
                 return (
-                  <article
+                  <div
                     key={project.id}
-                    className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-3"
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                    className="group relative bg-white rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:border-blue-100/50 transition-all duration-300 cursor-pointer flex flex-col h-full"
                   >
-                    {/* Card header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                          <span
-                            className={`inline-flex h-2 w-2 rounded-full ${statusDotClass}`}
-                          />
-                          <span>{statusLabel}</span>
-                        </p>
-                        <h3 className="text-sm font-semibold text-slate-900">
-                          {project.title}
-                        </h3>
-                        {project.description && (
-                          <p className="text-xs text-slate-600 line-clamp-3">
-                            {project.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right text-[11px] text-slate-500">
-                        <p className="mb-1">Created {createdLabel}</p>
-                        {category && category !== 'Other' && (
-                          <span className="inline-flex items-center rounded-full bg-slate-50 border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-                            {category}
-                          </span>
-                        )}
-                      </div>
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                        <span className={`h-1.5 w-1.5 rounded-full ${colors}`} />
+                        {statusLabel}
+                      </span>
+                      <button
+                        onClick={(e) => handleDelete(e, project.id)}
+                        className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors -mr-2 -mt-2 opacity-0 group-hover:opacity-100"
+                        title="Delete Project"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
                     </div>
 
-                    {/* Progress */}
-                    <div className="pt-1">
-                      <p className="text-[11px] text-slate-500 mb-1">
-                        Progress
+                    {/* Content */}
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+                        {project.title}
+                      </h3>
+                      <p className="text-sm text-slate-500 line-clamp-2 mb-4">
+                        {project.description || 'No description provided.'}
                       </p>
-                      <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                    </div>
+
+                    {/* Footer */}
+                    <div className="pt-4 border-t border-slate-50 mt-auto">
+                      <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
+                        <span>{category}</span>
+                        <span>{createdLabel}</span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="relative h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div
-                          className="h-1.5 bg-sky-500 transition-all"
+                          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${colors}`}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        {progress}%
-                      </p>
                     </div>
-
-                    {/* Actions */}
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/projects/${project.id}`)}
-                        className="px-4 py-1.5 rounded-full border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        Open
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(project.id)}
-                        className="px-4 py-1.5 rounded-full border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </article>
+                  </div>
                 );
               })}
             </div>

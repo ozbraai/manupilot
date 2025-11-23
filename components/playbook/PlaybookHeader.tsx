@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 type PlaybookHeaderProps = {
   productName: string;
   summary: string;
+  projectImage?: string;
   onUpdateSummary: (value: string) => void;
 };
 
@@ -15,6 +16,7 @@ type PlaybookHeaderProps = {
 export default function PlaybookHeader({
   productName,
   summary,
+  projectImage,
   onUpdateSummary,
 }: PlaybookHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -41,14 +43,29 @@ export default function PlaybookHeader({
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
         Manufacturing Playbook
       </p>
-      <div className="flex items-start justify-between gap-3">
-        <h1 className="text-3xl md:text-4xl font-semibold text-slate-900">
-          {productName || 'Untitled product'}
-        </h1>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4 flex-1">
+          {/* Thumbnail */}
+          {projectImage && (
+            <div className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-900 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={projectImage}
+                alt={`${productName} thumbnail`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="flex-1">
+            <h1 className="text-3xl md:text-4xl font-semibold text-slate-900">
+              {productName || 'Untitled product'}
+            </h1>
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => setIsEditing(true)}
-          className="text-xs text-slate-500 hover:text-slate-800"
+          className="text-xs text-slate-500 hover:text-slate-800 flex-shrink-0"
         >
           ✏️ Edit summary
         </button>

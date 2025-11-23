@@ -39,9 +39,8 @@ function FadeInSection({
   return (
     <div
       ref={ref}
-      className={`transform transition-all duration-700 ease-out ${
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-      } ${className}`}
+      className={`transform transition-all duration-700 ease-out ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
+        } ${className}`}
     >
       {children}
     </div>
@@ -83,142 +82,147 @@ export default function Home() {
 
   return (
     <>
-      <main className="min-h-screen bg-slate-50 text-slate-900">
+      <main className="min-h-screen bg-white text-zinc-900">
         {/* HERO */}
-        <section className="relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.12),_transparent_55%)]" />
-          <div className="relative max-w-7xl mx-auto px-6 pt-16 pb-20 md:px-8 md:pt-24 md:pb-28">
-            <div className="grid gap-12 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-center">
-              {/* HERO TEXT */}
-              <div className="space-y-7">
-                <p className="text-xs font-medium tracking-[0.32em] text-slate-500 uppercase">
-                  ManuPilot
-                </p>
+        <section className="relative overflow-hidden pt-16 pb-20 md:pt-24 md:pb-32">
+          {/* Background Gradients */}
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-50 via-white to-white opacity-70" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-indigo-50/40 blur-[100px] rounded-full mix-blend-multiply -z-10" />
+          <div className="absolute top-0 right-0 w-[800px] h-[600px] bg-sky-50/40 blur-[100px] rounded-full mix-blend-multiply -z-10" />
 
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight text-slate-900">
-                  Your manufacturing co-pilot for turning product ideas into{' '}
-                  <span className="text-sky-600">factory-ready reality.</span>
+          <div className="relative max-w-7xl mx-auto px-6 md:px-8">
+            <div className="grid gap-16 lg:grid-cols-[1.2fr_1fr] items-center">
+              {/* HERO TEXT */}
+              <div className="space-y-8 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-50 border border-zinc-200 text-xs font-medium text-zinc-600">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                  </span>
+                  AI-Powered Manufacturing
+                </div>
+
+                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight text-zinc-900 text-balance">
+                  Turn product ideas into <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-indigo-600">factory-ready reality.</span>
                 </h1>
 
-                <p className="text-base md:text-lg text-slate-600">
-                  Describe your concept in plain language. ManuPilot guides you
-                  through NDAs, specifications and supplier-ready briefs — without
-                  the Alibaba chaos.
+                <p className="text-lg md:text-xl text-zinc-600 leading-relaxed text-balance max-w-xl">
+                  Your AI co-pilot for sourcing. Describe your concept, and ManuPilot guides you through NDAs, specifications, and supplier-ready briefs—without the chaos.
                 </p>
 
-                <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
+                <div className="flex flex-col sm:flex-row gap-4 pt-4">
                   <button
                     onClick={handleStartProject}
-                    className="inline-flex items-center justify-center rounded-full px-8 py-3 bg-sky-600 text-white font-medium text-sm md:text-base shadow-[0_14px_30px_rgba(56,189,248,0.35)] hover:bg-sky-500 transition"
+                    className="inline-flex items-center justify-center rounded-full px-8 py-4 bg-zinc-900 text-white font-semibold text-base shadow-lg shadow-zinc-900/20 hover:bg-zinc-800 hover:shadow-xl hover:shadow-zinc-900/30 transition-all transform hover:-translate-y-0.5"
                   >
                     Start your first project
                   </button>
 
                   <button
                     onClick={handleGetPlaybook}
-                    className="inline-flex items-center justify-center rounded-full px-8 py-3 border border-slate-300 text-slate-700 text-sm md:text-base hover:border-slate-400 hover:bg-slate-50 transition"
+                    className="inline-flex items-center justify-center rounded-full px-8 py-4 bg-white border border-zinc-200 text-zinc-700 font-medium text-base hover:bg-zinc-50 hover:border-zinc-300 transition-all"
                   >
-                    Get a free Manufacturing Playbook
+                    Get free Playbook
                   </button>
                 </div>
 
-                <div className="grid gap-4 pt-6 text-xs md:grid-cols-3 md:text-sm text-slate-500">
-                  <div className="flex gap-3 items-start">
-                    <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-700 text-sm">
-                      🔐
-                    </span>
-                    <p>Start every project under NDA so your ideas stay protected.</p>
+                <div className="grid gap-6 pt-8 border-t border-zinc-100 sm:grid-cols-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-zinc-900 font-semibold text-sm">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-sky-100 text-sky-600 text-xs">🔒</span>
+                      NDA Protected
+                    </div>
+                    <p className="text-xs text-zinc-500 leading-relaxed">Your IP stays safe with automatic NDAs for every project.</p>
                   </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-sm">
-                      🤖
-                    </span>
-                    <p>AI co-pilot asks the right questions and fills in the gaps.</p>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-zinc-900 font-semibold text-sm">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs">🤖</span>
+                      AI Co-Pilot
+                    </div>
+                    <p className="text-xs text-zinc-500 leading-relaxed">Smart assistant fills in technical gaps in your specs.</p>
                   </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-sm">
-                      📄
-                    </span>
-                    <p>Generate clean, factory-ready briefs you can send to suppliers.</p>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-zinc-900 font-semibold text-sm">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs">📄</span>
+                      Factory Ready
+                    </div>
+                    <p className="text-xs text-zinc-500 leading-relaxed">Generate professional briefs suppliers actually understand.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Right side illustration placeholder */}
-              <div className="relative">
-                <div className="mx-auto w-full max-w-md h-80 rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-indigo-50 shadow-[0_18px_45px_rgba(15,23,42,0.16)] overflow-hidden">
-                  {/* You can keep or tweak this blueprint card as before */}
-                  <div
-                    className="absolute inset-0 opacity-60"
-                    style={{
-                      backgroundImage:
-                        'linear-gradient(to_right, rgba(148,163,184,0.25) 1px, transparent 1px), linear-gradient(to_bottom, rgba(148,163,184,0.25) 1px, transparent 1px)',
-                      backgroundSize: '22px 22px',
-                    }}
-                  />
-                  <div className="relative h-full p-6 flex flex-col justify-between text-slate-800">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Concept: New product
-                      </span>
-                      <span>ManuPilot Blueprint</span>
+              {/* Right side illustration */}
+              <div className="relative lg:h-[600px] flex items-center justify-center">
+                <div className="relative w-full max-w-lg aspect-[4/5] md:aspect-square lg:aspect-auto h-full max-h-[500px] rounded-3xl bg-white border border-zinc-200 shadow-2xl shadow-zinc-200/50 overflow-hidden rotate-1 hover:rotate-0 transition-transform duration-500">
+                  {/* Window Controls */}
+                  <div className="absolute top-0 left-0 right-0 h-10 bg-zinc-50 border-b border-zinc-100 flex items-center px-4 gap-2 z-10">
+                    <div className="w-3 h-3 rounded-full bg-red-400/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-amber-400/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-emerald-400/80"></div>
+                  </div>
+
+                  {/* Content Mockup */}
+                  <div className="absolute inset-0 pt-10 bg-zinc-50/50 p-6 flex flex-col">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <div className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">Project</div>
+                        <div className="text-lg font-bold text-zinc-900">Ergonomic Coffee Press</div>
+                      </div>
+                      <div className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200">
+                        Ready for Sourcing
+                      </div>
                     </div>
-                    <div className="space-y-4">
-                      <div className="rounded-2xl border border-sky-300/70 bg-white/80 px-4 py-3 shadow-sm">
-                        <div className="text-[11px] uppercase tracking-wide text-sky-700">
-                          Dimensions
-                        </div>
-                        <div className="mt-1 flex justify-between text-xs text-slate-700">
-                          <span>Length: 320mm</span>
-                          <span>Width: 210mm</span>
-                          <span>Height: 85mm</span>
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border border-indigo-200/80 bg-white/80 px-4 py-3 shadow-sm">
-                        <div className="text-[11px] uppercase tracking-wide text-indigo-700">
-                          Materials
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-700">
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5">
-                            304 stainless
-                          </span>
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5">
-                            Food-grade silicone
-                          </span>
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5">
-                            Powder-coat
-                          </span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 text-[11px] text-slate-600">
-                        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-center">
-                          MOQ
-                          <div className="mt-1 text-sm font-semibold text-slate-900">
-                            500
+
+                    <div className="space-y-4 flex-1 overflow-hidden relative">
+                      {/* Spec Card 1 */}
+                      <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                           </div>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-center">
-                          Target landed
-                          <div className="mt-1 text-sm font-semibold text-slate-900">
-                            $8.40
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-center">
-                          Timeline
-                          <div className="mt-1 text-sm font-semibold text-slate-900">
-                            10–12 wks
+                          <div>
+                            <div className="text-sm font-semibold text-zinc-900">Material Specs</div>
+                            <div className="text-xs text-zinc-500 mt-1">Borosilicate Glass (Heat resistant), 304 Stainless Steel Mesh</div>
                           </div>
                         </div>
                       </div>
+
+                      {/* Spec Card 2 */}
+                      <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center text-sky-600">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-zinc-900">Dimensions</div>
+                            <div className="text-xs text-zinc-500 mt-1">Height: 22cm, Diameter: 10cm, Capacity: 1000ml</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* AI Chat Bubble */}
+                      <div className="absolute bottom-4 right-0 left-4 bg-zinc-900 text-white p-4 rounded-2xl rounded-tl-none shadow-xl text-sm leading-relaxed">
+                        <div className="flex items-center gap-2 mb-2 text-zinc-400 text-xs">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                          ManuPilot AI
+                        </div>
+                        "I've updated the target price based on the new stainless steel grade. We should aim for $8.50 - $9.20 per unit at 500 MOQ."
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>Draft spec ready</span>
-                      <span className="inline-flex items-center gap-1 text-emerald-600">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Send to suppliers
-                      </span>
-                    </div>
+                  </div>
+                </div>
+
+                {/* Floating Elements */}
+                <div className="absolute -right-8 top-1/4 bg-white p-3 rounded-xl shadow-lg border border-zinc-100 animate-bounce duration-[3000ms]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🏭</span>
+                    <div className="text-xs font-bold text-zinc-800">5 Verified Suppliers</div>
+                  </div>
+                </div>
+                <div className="absolute -left-4 bottom-1/4 bg-white p-3 rounded-xl shadow-lg border border-zinc-100 animate-pulse duration-[4000ms]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📉</span>
+                    <div className="text-xs font-bold text-zinc-800">Cost Optimized</div>
                   </div>
                 </div>
               </div>
@@ -226,63 +230,47 @@ export default function Home() {
           </div>
         </section>
 
-        {/* HOW IT WORKS SECTION KEEPING AS BEFORE (optional) */}
-        <section className="relative z-10 bg-white">
-          <div className="max-w-7xl mx-auto px-6 pt-14 pb-24 md:px-8 md:pt-20">
-            <FadeInSection className="space-y-10">
-              <div className="space-y-3 max-w-2xl">
-                <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
-                  How ManuPilot works
+        {/* HOW IT WORKS SECTION */}
+        <section className="relative z-10 bg-zinc-50 border-t border-zinc-200">
+          <div className="max-w-7xl mx-auto px-6 pt-20 pb-24 md:px-8">
+            <FadeInSection className="space-y-16">
+              <div className="text-center max-w-2xl mx-auto space-y-4">
+                <h2 className="text-3xl md:text-4xl font-bold text-zinc-900 tracking-tight">
+                  From fuzzy idea to factory-ready.
                 </h2>
-                <p className="text-sm md:text-base text-slate-600">
-                  From fuzzy idea to supplier-ready brief in three guided steps. No
-                  spreadsheets, no eighty-reply Alibaba threads.
+                <p className="text-lg text-zinc-600">
+                  Three guided steps to professional manufacturing specs. No spreadsheets, no chaos.
                 </p>
               </div>
 
-              <div className="grid gap-6 md:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-700 text-sm font-medium">
-                      1
-                    </span>
-                    <h3 className="font-semibold text-slate-900 text-base">
-                      Describe your idea
-                    </h3>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    Start a project, answer simple questions about what you&apos;re
-                    building, who it&apos;s for and how it should feel.
+              <div className="grid gap-8 md:grid-cols-3">
+                <div className="group rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm hover:shadow-md hover:border-zinc-300 transition-all">
+                  <div className="w-12 h-12 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center text-xl font-bold mb-6 group-hover:scale-110 transition-transform">1</div>
+                  <h3 className="text-xl font-bold text-zinc-900 mb-3">
+                    Describe your idea
+                  </h3>
+                  <p className="text-zinc-600 leading-relaxed">
+                    Start a project and answer simple questions about what you&apos;re building. Who is it for? How should it feel?
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium">
-                      2
-                    </span>
-                    <h3 className="font-semibold text-slate-900 text-base">
-                      Let the co-pilot refine it
-                    </h3>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    ManuPilot turns your answers into structured specs: dimensions,
-                    materials, constraints, target costs and more.
+                <div className="group rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm hover:shadow-md hover:border-zinc-300 transition-all">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl font-bold mb-6 group-hover:scale-110 transition-transform">2</div>
+                  <h3 className="text-xl font-bold text-zinc-900 mb-3">
+                    AI Refinement
+                  </h3>
+                  <p className="text-zinc-600 leading-relaxed">
+                    ManuPilot turns your answers into structured specs: dimensions, materials, tolerances, and target costs.
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium">
-                      3
-                    </span>
-                    <h3 className="font-semibold text-slate-900 text-base">
-                      Export a factory-ready brief
-                    </h3>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    Download a clean brief or send it straight to your sourcing
-                    partner — everything captured in one place.
+                <div className="group rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm hover:shadow-md hover:border-zinc-300 transition-all">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl font-bold mb-6 group-hover:scale-110 transition-transform">3</div>
+                  <h3 className="text-xl font-bold text-zinc-900 mb-3">
+                    Export & Source
+                  </h3>
+                  <p className="text-zinc-600 leading-relaxed">
+                    Download a clean, professional brief or send it straight to our vetted sourcing partners in one click.
                   </p>
                 </div>
               </div>

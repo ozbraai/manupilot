@@ -1,5 +1,3 @@
-// components/project/ProjectRoadmapModal.tsx
-
 'use client';
 
 import React from 'react';
@@ -11,31 +9,40 @@ type CompletionState = {
   };
 };
 
-type ActivityEntry = {
-  timestamp: string;
-  message: string;
+// We update this type to match what ProjectActivity.tsx expects
+type ActivityItem = {
+  id: string;
+  type: 'note' | 'decision' | 'update';
+  title: string;
+  detail: string;
+  createdAt: string;
 };
 
 type ProjectRoadmapModalProps = {
   show: boolean;
   setShow: (open: boolean) => void;
-  free: any | null | undefined;       // free section of playbook
+  free: any | null | undefined;
   completion: CompletionState;
   setCompletion: (value: CompletionState) => void;
   projectId: string;
-  activity: ActivityEntry[];
-  setActivity: (fn: (prev: ActivityEntry[]) => ActivityEntry[]) => void;
+  // Update prop type to match
+  activity: ActivityItem[];
+  setActivity: (fn: (prev: ActivityItem[]) => ActivityItem[]) => void;
 };
 
 // === [2] HELPERS ===
 function addActivity(
   projectId: string,
   message: string,
-  setActivity: (fn: (prev: ActivityEntry[]) => ActivityEntry[]) => void
+  setActivity: (fn: (prev: ActivityItem[]) => ActivityItem[]) => void
 ) {
-  const entry: ActivityEntry = {
-    timestamp: new Date().toISOString(),
-    message,
+  // Create a robust, unique item that matches the Activity Log's expectations
+  const entry: ActivityItem = {
+    id: `roadmap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
+    type: 'update',
+    title: 'Roadmap',
+    detail: message,
+    createdAt: new Date().toISOString(),
   };
 
   setActivity((prev) => {
@@ -70,15 +77,18 @@ export default function ProjectRoadmapModal({
     taskId: string,
     label: string
   ) {
+    const currentPhase = completion[phaseId] || {};
+    const isCurrentlyDone = !!currentPhase[taskId];
+    const nextValue = !isCurrentlyDone;
+
     const next: CompletionState = {
       ...completion,
       [phaseId]: {
-        ...(completion[phaseId] || {}),
-        [taskId]: !(completion[phaseId] && completion[phaseId][taskId]),
+        ...currentPhase,
+        [taskId]: nextValue,
       },
     };
 
-    const nowChecked = !(completion[phaseId] && completion[phaseId][taskId]);
     setCompletion(next);
 
     // Save to localStorage
@@ -89,81 +99,103 @@ export default function ProjectRoadmapModal({
       );
     }
 
-    // Log activity
+    // Log activity with the fixed structure
     addActivity(
       projectId,
-      `${nowChecked ? 'Completed' : 'Unchecked'} task: "${label}"`,
+      `${nextValue ? 'Completed' : 'Unchecked'} task: "${label}"`,
       setActivity
     );
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40">
-      <div className="relative w-full max-w-3xl max-h-[80vh] overflow-hidden rounded-2xl bg-white shadow-xl">
-        {/* === [3.2] HEADER === */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-3">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+      <div className="relative w-full max-w-3xl max-h-[80vh] overflow-hidden rounded-2xl bg-white shadow-xl border border-slate-200">
+        {/* === HEADER === */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-3 bg-slate-50/50">
           <h2 className="text-sm font-semibold text-slate-900">
-            Roadmap & checklist
+            Roadmap & Checklist
           </h2>
           <button
             type="button"
             onClick={() => setShow(false)}
-            className="text-xs text-slate-500 hover:text-slate-800"
+            className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 rounded-md hover:bg-slate-100 transition"
           >
             Close ✕
           </button>
         </div>
 
-        {/* === [3.3] BODY === */}
-        <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-4 text-sm">
+        {/* === BODY === */}
+        <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-6 bg-white">
           {!phases.length ? (
-            <p className="text-slate-600">
-              This project does not have a roadmap yet. Generate a new playbook or update this project to include roadmap phases.
-            </p>
+            <div className="p-6 text-center bg-slate-50 rounded-xl border border-slate-200 border-dashed">
+              <p className="text-sm text-slate-600">
+                This project does not have a roadmap generated yet.
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Try creating a new playbook to get the full AI roadmap features.
+              </p>
+            </div>
           ) : (
             phases.map((phase: any, phaseIdx: number) => {
-              const phaseId =
-                phase.id || phase.name || `phase_${phaseIdx}`;
+              const phaseId = phase.id || phase.name || `phase_${phaseIdx}`;
               const tasks = phase.tasks || [];
+
+              // Calculate phase progress
+              const phaseTasksCount = tasks.length;
+              const phaseCompletedCount = tasks.reduce((acc: number, _: string, idx: number) => {
+                const tId = `${phaseId}_task_${idx}`;
+                return acc + (completion?.[phaseId]?.[tId] ? 1 : 0);
+              }, 0);
+              const isPhaseComplete = phaseTasksCount > 0 && phaseTasksCount === phaseCompletedCount;
 
               return (
                 <div
                   key={phaseId}
-                  className="border border-slate-200 rounded-xl p-4"
+                  className={`border rounded-xl p-4 transition-all ${
+                    isPhaseComplete 
+                      ? 'border-emerald-200 bg-emerald-50/30' 
+                      : 'border-slate-200 bg-white'
+                  }`}
                 >
-                  {/* === [3.3.1] PHASE HEADER === */}
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-semibold text-slate-900">
-                      {phase.name || `Phase ${phaseIdx + 1}`}
-                    </h3>
+                  {/* Phase Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className={`text-sm font-semibold ${isPhaseComplete ? 'text-emerald-900' : 'text-slate-900'}`}>
+                        {phase.name || `Phase ${phaseIdx + 1}`}
+                      </h3>
+                      {phase.description && (
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {phase.description}
+                        </p>
+                      )}
+                    </div>
+                    {isPhaseComplete && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700">
+                        Phase Complete
+                      </span>
+                    )}
                   </div>
-                  {phase.description && (
-                    <p className="text-xs text-slate-500 mb-2">
-                      {phase.description}
-                    </p>
-                  )}
 
-                  {/* === [3.3.2] TASK LIST === */}
-                  <div className="space-y-1">
+                  {/* Tasks */}
+                  <div className="space-y-2">
                     {tasks.map((task: string, taskIdx: number) => {
                       const taskKey = `${phaseId}_task_${taskIdx}`;
-                      const checked =
-                        completion?.[phaseId]?.[taskKey] || false;
+                      const checked = completion?.[phaseId]?.[taskKey] || false;
 
                       return (
                         <label
                           key={taskKey}
-                          className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer"
+                          className={`flex items-start gap-3 text-sm p-2 rounded-lg cursor-pointer transition-colors ${
+                            checked ? 'text-slate-400 bg-slate-50 line-through' : 'text-slate-700 hover:bg-slate-50'
+                          }`}
                         >
                           <input
                             type="checkbox"
-                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 shrink-0"
                             checked={checked}
-                            onChange={() =>
-                              toggleTask(phaseId, taskKey, task)
-                            }
+                            onChange={() => toggleTask(phaseId, taskKey, task)}
                           />
-                          <span>{task}</span>
+                          <span className="leading-tight select-none">{task}</span>
                         </label>
                       );
                     })}

@@ -1,9 +1,9 @@
-// components/project/ProjectActivity.tsx
-
 'use client';
 
 import React, { useState } from 'react';
 
+// We keep these types so the parent file doesn't crash on type checking,
+// even though we aren't using 'completion' anymore in this file.
 type CompletionState = {
   [phaseId: string]: {
     [taskId: string]: boolean;
@@ -19,41 +19,26 @@ type ActivityItem = {
 };
 
 type ProjectActivityProps = {
-  completion: CompletionState;
-  onToggleTask: (phaseId: string, taskId: string, value: boolean) => void;
+  completion?: CompletionState; // Made optional, we ignore it now
+  onToggleTask?: (phaseId: string, taskId: string, value: boolean) => void;
   projectId: string | undefined;
   activity: ActivityItem[];
   setActivity: (items: ActivityItem[]) => void;
 };
 
 export default function ProjectActivity({
-  completion,
-  onToggleTask,
   projectId,
   activity,
   setActivity,
 }: ProjectActivityProps) {
   const [newNote, setNewNote] = useState('');
 
-  // Very simple stats: how many tasks done vs total
-  let totalTasks = 0;
-  let doneTasks = 0;
-  Object.values(completion).forEach((phaseTasks) => {
-    Object.values(phaseTasks).forEach((done) => {
-      totalTasks += 1;
-      if (done) doneTasks += 1;
-    });
-  });
-
-  const progress =
-    totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
-
   function handleAddNote() {
     const text = newNote.trim();
     if (!text) return;
 
     const item: ActivityItem = {
-      id: `${Date.now()}`,
+      id: `note_${Date.now()}`,
       type: 'note',
       title: 'Note',
       detail: text,
@@ -76,18 +61,9 @@ export default function ProjectActivity({
     <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-900">
-          Activity & progress
+          Activity & Notes
         </h3>
-        <span className="text-xs text-slate-500">
-          {doneTasks}/{totalTasks || 0} tasks complete ({progress}%)
-        </span>
-      </div>
-
-      <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
-        <div
-          className="h-full bg-emerald-500 transition-all"
-          style={{ width: `${progress}%` }}
-        />
+        {/* Redundant progress bar removed */}
       </div>
 
       {/* Quick note box */}
@@ -99,7 +75,7 @@ export default function ProjectActivity({
           className="w-full min-h-[80px] rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white"
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Example: Spoke to supplier A, they can do smaller MOQ with slightly higher cost."
+          placeholder="Log a call, decision, or idea..."
         />
         <div className="flex justify-end">
           <button
@@ -118,14 +94,15 @@ export default function ProjectActivity({
         <p className="text-xs font-medium text-slate-700 mb-2">Recent activity</p>
         {activity.length ? (
           <ul className="space-y-2 text-sm text-slate-700">
-            {activity.map((item) => (
-              <li key={item.id} className="border border-slate-100 rounded-lg p-2">
+            {activity.map((item, idx) => (
+              // Fallback key protects against older items missing IDs
+              <li key={item.id || `act_${idx}`} className="border border-slate-100 rounded-lg p-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs uppercase tracking-wide text-slate-500">
-                    {item.type}
+                    {item.type || 'update'}
                   </span>
                   <span className="text-[11px] text-slate-400">
-                    {new Date(item.createdAt).toLocaleString()}
+                    {item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
                   </span>
                 </div>
                 <p className="mt-1 text-[13px] text-slate-800">{item.detail}</p>
@@ -134,8 +111,7 @@ export default function ProjectActivity({
           </ul>
         ) : (
           <p className="text-sm text-slate-600">
-            No activity logged yet. Use the note field above to start tracking key
-            decisions and updates.
+            No activity logged yet.
           </p>
         )}
       </div>

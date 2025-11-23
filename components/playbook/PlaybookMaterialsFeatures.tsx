@@ -1,123 +1,58 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import React from 'react';
 
-type LegacyFree = {
-  materials?: string | string[];
-  features?: string | string[];
+type PlaybookMaterialsFeaturesProps = {
+  materials?: string[];
+  features?: string[];
+  onUpdate: (key: string, value: any) => void;
 };
 
-type Props = {
-  // New-style props
-  materials?: string | string[];
-  features?: string | string[];
-  onUpdate?: (vals: { materials: string[]; features: string[] }) => void;
-
-  // Legacy props (how playbook-summary currently calls it)
-  free?: LegacyFree;
-  onUpdateMaterials?: (materials: string[]) => void;
-  onUpdateFeatures?: (features: string[]) => void;
-};
-
-export default function PlaybookMaterialsFeatures({
-  materials,
-  features,
-  free,
-  onUpdate,
-  onUpdateMaterials,
-  onUpdateFeatures,
-}: Props) {
-  // === HELPERS ===
-  function arrayToLines(
-    arr: string | string[] | undefined
-  ): string {
-    if (Array.isArray(arr)) return arr.join("\n");
-    if (typeof arr === "string") return arr;
-    return "";
-  }
-
-  function linesToArray(text: string): string[] {
-    return text
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  }
-
-  // Prefer values from `free` if provided, otherwise use direct props
-  const initialMaterialsSource =
-    free?.materials ?? materials;
-  const initialFeaturesSource =
-    free?.features ?? features;
-
-  const [materialsText, setMaterialsText] = useState(
-    arrayToLines(initialMaterialsSource)
-  );
-  const [featuresText, setFeaturesText] = useState(
-    arrayToLines(initialFeaturesSource)
-  );
-
-  // Keep drafts in sync when parent changes
-  useEffect(() => {
-    setMaterialsText(
-      arrayToLines(free?.materials ?? materials)
-    );
-  }, [free?.materials, materials]);
-
-  useEffect(() => {
-    setFeaturesText(
-      arrayToLines(free?.features ?? features)
-    );
-  }, [free?.features, features]);
-
-  function handleBlur() {
-    const mats = linesToArray(materialsText);
-    const feats = linesToArray(featuresText);
-
-    // New unified callback
-    if (onUpdate) {
-      onUpdate({ materials: mats, features: feats });
-    }
-
-    // Legacy callbacks
-    if (onUpdateMaterials) {
-      onUpdateMaterials(mats);
-    }
-    if (onUpdateFeatures) {
-      onUpdateFeatures(feats);
-    }
-  }
-
+export default function PlaybookMaterialsFeatures({ 
+  materials = [], 
+  features = [], 
+  onUpdate 
+}: PlaybookMaterialsFeaturesProps) {
+  
+  // Simple rendering for now - can add editing logic similar to KeyInfo if needed
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
-          Materials
-        </p>
-        <textarea
-          className="w-full min-h-[120px] rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
-          value={materialsText}
-          onChange={(e) => setMaterialsText(e.target.value)}
-          onBlur={handleBlur}
-          placeholder={
-            "Example: Stainless steel 304\nHeat-resistant nylon handle\nFood-grade silicone feet"
-          }
-        />
-      </div>
+    <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-full">
+      <h3 className="text-base font-semibold text-slate-900 mb-4">🏗️ Materials & Features</h3>
 
-      <div>
-        <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
-          Features
-        </p>
-        <textarea
-          className="w-full min-h-[120px] rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:bg-white focus:ring-2 focus:ring-sky-500 outline-none"
-          value={featuresText}
-          onChange={(e) => setFeaturesText(e.target.value)}
-          onBlur={handleBlur}
-          placeholder={
-            "Example: Compact folding design\nAdjustable airflow\nRotisserie mounting points"
-          }
-        />
+      <div className="space-y-5">
+        {/* Materials */}
+        <div>
+          <p className="text-xs font-semibold uppercase text-slate-500 mb-2">Key Materials</p>
+          {materials.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {materials.map((mat, idx) => (
+                <span key={idx} className="px-3 py-1 rounded-md border border-slate-200 bg-slate-50 text-xs text-slate-700">
+                  {mat}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 italic">No specific materials listed.</p>
+          )}
+        </div>
+
+        {/* Features */}
+        <div>
+          <p className="text-xs font-semibold uppercase text-slate-500 mb-2">Core Features</p>
+          {features.length > 0 ? (
+            <ul className="space-y-2">
+              {features.map((feat, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>{feat}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-400 italic">No features listed.</p>
+          )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

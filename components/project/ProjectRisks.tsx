@@ -1,47 +1,50 @@
 // components/project/ProjectRisks.tsx
-
 'use client';
 
 import React from 'react';
 
 type ProjectRisksProps = {
-  // Can be a single string, an array, or undefined
-  risks: string | string[] | undefined;
+  risks: string[] | undefined;
+  dfmWarnings?: string[] | undefined; // NEW: Design for Mfg warnings
 };
 
-function linesToArray(text: string): string[] {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
+export default function ProjectRisks({ risks, dfmWarnings }: ProjectRisksProps) {
+  const hasRisks = risks && risks.length > 0;
+  const hasDfm = dfmWarnings && dfmWarnings.length > 0;
 
-function ensureArray(value: string | string[] | undefined): string[] {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string') return linesToArray(value);
-  return [];
-}
-
-export default function ProjectRisks({ risks }: ProjectRisksProps) {
-  const items = ensureArray(risks);
+  if (!hasRisks && !hasDfm) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-900 mb-2">Key risks & trade-offs</h3>
+        <p className="text-sm text-slate-600">No specific risks documented yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-900 mb-2">
-        Key risks & trade-offs
-      </h3>
-      {items.length ? (
-        <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-          {items.map((risk, idx) => (
-            <li key={idx}>{risk}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-slate-600">
-          No specific risks have been documented yet. As you move forward, note
-          down things like MOQ exposure, tooling costs, lead times, or supplier
-          reliability concerns here.
-        </p>
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
+      {/* General Risks */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900 mb-2">🚨 Commercial & Supply Risks</h3>
+        {hasRisks ? (
+          <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
+            {risks?.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+        ) : (
+          <p className="text-sm text-slate-500">None detected.</p>
+        )}
+      </div>
+
+      {/* DFM Warnings (The "Engineer" View) */}
+      {hasDfm && (
+        <div className="pt-4 border-t border-slate-100">
+          <h3 className="text-sm font-semibold text-amber-700 mb-2">🛠️ DFM (Design for Mfg) Warnings</h3>
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+            <ul className="list-disc list-inside text-sm text-amber-900 space-y-1">
+              {dfmWarnings?.map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
+          </div>
+        </div>
       )}
     </div>
   );

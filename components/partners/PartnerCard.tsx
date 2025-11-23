@@ -8,6 +8,7 @@ import Link from 'next/link';
 // === [1] TYPES ===
 export type Partner = {
   id: string;
+  user_id?: string; // Added for messaging
   type: string;
   name: string;
   region: string | null;
@@ -29,10 +30,7 @@ export default function PartnerCard({ partner, basePath }: PartnerCardProps) {
   const capabilities = partner.capabilities || [];
 
   return (
-    <Link
-      href={`/${basePath}/${partner.id}`}
-      className="group block bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition"
-    >
+    <div className="group bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition">
       {/* === [2.1] IMAGE & NAME === */}
       <div className="flex items-start gap-4">
         {partner.image_url ? (
@@ -95,10 +93,33 @@ export default function PartnerCard({ partner, basePath }: PartnerCardProps) {
         </div>
       )}
 
-      {/* === [2.4] CTA HINT === */}
-      <p className="mt-3 text-[11px] text-sky-600 font-medium">
-        View profile →
-      </p>
-    </Link>
+      {/* Message and View Profile Buttons */}
+      <div className="mt-4 flex gap-2">
+        <button
+          onClick={async () => {
+            const res = await fetch('/api/messages/conversations', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                partnerId: partner.user_id || partner.id, // Use user_id if available, otherwise partner id
+                subject: `Inquiry about ${partner.name}`
+              }),
+            });
+            if (res.ok) {
+              window.location.href = '/messages';
+            }
+          }}
+          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+        >
+          💬 Message
+        </button>
+        <Link
+          href={`/${basePath}/${partner.id}`}
+          className="flex-1 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium text-center"
+        >
+          View Profile →
+        </Link>
+      </div>
+    </div>
   );
 }

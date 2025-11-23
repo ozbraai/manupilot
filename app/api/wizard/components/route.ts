@@ -13,49 +13,41 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error('Missing OPENAI_API_KEY in /api/wizard/components');
-      // Safe fallback using baseName
+      console.error('Missing OPENAI_API_KEY');
+      // Return safe defaults that match your Frontend's "ComponentsInfo" type
       return NextResponse.json(
         {
           coreProduct: baseName,
-          suggestedComponents: [
-            { id: 'core', label: baseName, required: true },
-          ],
+          category: "General",
+          subProducts: [],
+          components: {},
+          supplierTypes: [],
+          whiteLabelSuitability: { score: 0.5, reason: "API Key missing" }
         },
         { status: 200 }
       );
     }
 
+    // The Prompt: Strictly aligned with your Frontend's ComponentsInfo type
     const prompt = `
-You are ManuBot, an assistant helping to break a product idea into components.
+    You are an expert manufacturing engineer. Analyze this product idea:
+    
+    Product Name: "${rawProductName}"
+    Description: "${idea}"
 
-Given this idea:
-
-"${idea}"
-
-Short product name: "${rawProductName || ''}"
-
-1. Identify the CORE product (the main functional item).
-2. Suggest 2–4 additional components or extras that a founder might reasonably want help with, such as:
-   - Carry bag / case
-   - Retail packaging
-   - Instructions / booklet
-   - Accessories
-   - Mounting hardware
-3. Mark exactly ONE component as required = true (the core product).
-4. All others are required = false.
-
-Output JSON in this format, and nothing else:
-
-{
-  "coreProduct": "string",
-  "suggestedComponents": [
-    { "id": "core", "label": "string", "required": true },
-    { "id": "bag", "label": "string", "required": false },
-    { "id": "packaging", "label": "string", "required": false }
-  ]
-}
-`;
+    Output a JSON object with the following manufacturing details:
+    
+    1. "coreProduct": The concise name of the main item.
+    2. "category": A standard industrial category (e.g., "Consumer Electronics", "Soft Goods", "Injection Molded Plastics").
+    3. "subProducts": An array of potential variants or add-ons (e.g., "Carry Case", "Pro Version"). Each object: { "id": "string", "label": "string", "description": "string" }.
+    4. "components": A categorization of parts. Object where Key = Section (e.g., "Enclosure", "Electronics", "Packaging") and Value = Array of part names.
+    5. "supplierTypes": Array of factory types needed (e.g., "PCBA House", "Cut & Sew", "Metal Stamping").
+    6. "whiteLabelSuitability": Object with:
+       - "score": number (0.0 to 1.0) representing how easy it is to find this off-the-shelf (Alibaba/ODM).
+       - "reason": Short explanation.
+    
+    Strictly output valid JSON only.
+    `;
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -64,71 +56,42 @@ Output JSON in this format, and nothing else:
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', // Fast and capable enough for structured JSON
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: 'You output only valid JSON.' },
+          { role: 'system', content: 'You are a manufacturing engineer. Output only valid JSON.' },
           { role: 'user', content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 400,
       }),
     });
 
-    const raw = await res.text();
+    if (!res.ok) throw new Error('OpenAI API error');
 
-    if (!res.ok) {
-      console.error('components route AI error:', raw);
-      return NextResponse.json(
-        {
-          coreProduct: baseName,
-          suggestedComponents: [
-            { id: 'core', label: baseName, required: true },
-          ],
-        },
-        { status: 200 }
-      );
-    }
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) throw new Error('No content from AI');
 
-    let payload: any = null;
-    try {
-      const parsed = JSON.parse(raw);
-      const content = parsed.choices?.[0]?.message?.content || '{}';
-      payload = JSON.parse(content);
-    } catch (e) {
-      console.error('components route parse error:', e, raw);
-      return NextResponse.json(
-        {
-          coreProduct: baseName,
-          suggestedComponents: [
-            { id: 'core', label: baseName, required: true },
-          ],
-        },
-        { status: 200 }
-      );
-    }
+    const payload = JSON.parse(content);
 
-    // Make sure basics exist
-    if (!payload.coreProduct) payload.coreProduct = baseName;
-    if (!Array.isArray(payload.suggestedComponents)) {
-      payload.suggestedComponents = [
-        { id: 'core', label: baseName, required: true },
-      ];
-    }
+    // Return the rich payload your frontend expects
+    // We add fallbacks (||) to ensure the app never crashes if AI misses a field
+    return NextResponse.json({
+      coreProduct: payload.coreProduct || baseName,
+      category: payload.category || 'General',
+      subProducts: Array.isArray(payload.subProducts) ? payload.subProducts : [],
+      components: payload.components || {},
+      supplierTypes: Array.isArray(payload.supplierTypes) ? payload.supplierTypes : [],
+      whiteLabelSuitability: payload.whiteLabelSuitability || { score: 0, reason: "N/A" }
+    });
 
-    return NextResponse.json(payload);
   } catch (e: any) {
-    console.error('components route error:', e);
-    // Last-resort fallback
-    const baseName = 'Core product';
+    console.error('Components API Error:', e);
+    // Fallback error response
     return NextResponse.json(
-      {
-        coreProduct: baseName,
-        suggestedComponents: [
-          { id: 'core', label: baseName, required: true },
-        ],
-      },
-      { status: 200 }
+      { error: 'Failed to analyze components' },
+      { status: 500 }
     );
   }
 }

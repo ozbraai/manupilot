@@ -12,9 +12,10 @@ type ProjectKeyInfoProps = {
     createdAt?: string;
   };
   free?: any;
+  onUpdate?: (key: string, value: any) => void;
 };
 
-export default function ProjectKeyInfo({ project, keyInfo, free = {} }: ProjectKeyInfoProps) {
+export default function ProjectKeyInfo({ project, keyInfo, free = {}, onUpdate }: ProjectKeyInfoProps) {
   // Defensive: safely extract fields even if missing
   const safeCustomer =
     free.targetCustomer ||
@@ -32,20 +33,30 @@ export default function ProjectKeyInfo({ project, keyInfo, free = {} }: ProjectK
   useEffect(() => {
     setDraftCustomer(
       free.targetCustomer ||
-        free.customer ||
-        free.targetMarket ||
-        ''
+      free.customer ||
+      free.targetMarket ||
+      ''
     );
   }, [free]);
 
   function saveCustomer() {
-    if (typeof window !== 'undefined') {
-      const updated = { ...free, targetCustomer: draftCustomer };
+    if (onUpdate) {
+      onUpdate('targetCustomer', draftCustomer);
+    }
 
-      window.localStorage.setItem(
-        `manupilot_playbook_project_${project.id}`,
-        JSON.stringify({ free: updated })
-      );
+    // Fallback or duplicate save to localStorage if needed, but parent should handle it via onUpdate ideally.
+    // Keeping existing behavior for safety but relying on parent for state update.
+    if (typeof window !== 'undefined' && project?.id) {
+      // We'll let the parent handle the actual saving to avoid conflicts, 
+      // or we can keep this if the parent only updates local state.
+      // For now, let's assume parent handles it if onUpdate is present.
+      if (!onUpdate) {
+        const updated = { ...free, targetCustomer: draftCustomer };
+        window.localStorage.setItem(
+          `manupilot_playbook_project_${project.id}`,
+          JSON.stringify({ free: updated })
+        );
+      }
     }
     setEditingCustomer(false);
   }

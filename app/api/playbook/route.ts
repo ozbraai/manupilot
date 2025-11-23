@@ -1,237 +1,237 @@
-// app/api/playbook/route.ts
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-type Question = {
-  key: string;
-  label: string;
-  title: string;
-  helper: string;
-  placeholder: string;
-  suggestedAnswer?: string;
-};
+// Initialize Supabase client for server-side storage
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
     const {
       idea,
       productName,
       category,
-      coreProduct,
-      componentsInfo,
-      selectedSubProducts,
-      questions,
-      answers,
-      constraints,
-      costEstimate,
       sourcingMode,
-    } = body as {
-      idea: string;
-      productName: string;
-      category?: string;
-      coreProduct?: string;
-      componentsInfo?: any;
-      selectedSubProducts?: any[];
-      questions?: Question[];
-      answers?: Record<string, string>;
-      constraints?: any;
-      costEstimate?: any;
-      sourcingMode?: 'white-label' | 'custom' | 'auto';
-    };
+      constraints,
+      componentsInfo,
+      costEstimate
+    } = body;
 
-    const safeCategory = category || 'general product';
-    const safeCoreProduct = coreProduct || productName || idea || 'the product';
-    const mode: 'white-label' | 'custom' =
-      sourcingMode === 'white-label' ? 'white-label' : 'custom';
+    const market = constraints?.markets || 'US';
+    const targetPrice = constraints?.maxUnitPrice || 'Not set';
 
     const systemPrompt = `
-You are ManuBot, an expert manufacturing playbook generator for ManuPilot.
+    You are a Senior NPI (New Product Introduction) Program Manager.
+    Your goal is to produce a BRUTALLY REALISTIC manufacturing plan and engineering breakdown.
+    
+    Context:
+    Product: "${productName}"
+    Category: "${category}"
+    Market: "${market}"
+    Mode: ${sourcingMode === 'white-label' ? 'White Label (Off-the-shelf)' : 'Custom Design (New Tooling)'}
+    Target Cost: ${targetPrice}
 
-Your job is to take the user's idea, clarified details, constraints and sourcing mode,
-and output a structured playbook object plus a phased roadmap.
+    Your task is to generate a JSON Playbook that impresses an industry veteran.
 
-You must output STRICT JSON with this shape:
+    RULES FOR "COMPLEXITY TIER":
+    - Determine if this is TIER 1 (Simple/Accessories), TIER 2 (Consumer Electronics), or TIER 3 (Automotive/Medical/Robotics).
+    
+    RULES FOR TIMELINE (The "NPI" Standard):
+    - If TIER 1 (Simple): Timeline = 3-6 Months. Focus: Sampling -> Packaging -> Order.
+    - If TIER 2 (Electronics): Timeline = 9-12 Months. Focus: PCB Layout -> EVT -> DVT -> PVT -> Certs.
+    - If TIER 3 (Automotive/Complex): Timeline = 2-4 YEARS. 
+      * Must include: "Clay Modeling", "Class A Surfacing", "Chassis Engineering", "Homologation/Road Legal Testing", "Crash Testing".
+      * DO NOT say "Month 1". Use "Q1-Q2: Concept", "Year 2: Tooling", etc.
 
-{
-  "playbook": {
-    "productName": "short name",
-    "category": "product category",
-    "sourcingMode": "white-label" or "custom",
-    "free": {
-      "summary": "2–3 paragraphs describing what the product is and what the founder is trying to achieve.",
-      "targetCustomer": "Who this is for and why they care.",
-      "materials": "Key materials and finishes you recommend.",
-      "features": "Headline features and any variants/sub-products that matter.",
-      "approach": "High-level sourcing and manufacturing approach.",
-      "risks": "Realistic risks and trade-offs the founder should know.",
-      "timeline": "High-level timeline expectations and key gates.",
-      "nextSteps": "3–7 immediate, concrete actions."
-    },
-    "roadmapPhases": [
-      {
-        "id": "phase_1",
-        "title": "Phase title",
-        "description": "1–2 sentence overview.",
-        "tasks": [
-          {
-            "id": "task_1",
-            "title": "Task title",
-            "detail": "What needs to be done and why.",
-            "ownerHint": "Founder / sourcing agent / engineer / designer"
-          }
-        ]
+    RULES FOR FINANCIALS:
+    - "Unit Economics": Cost to make ONE. (BOM + Labor + Scrap rate).
+    - "Startup Capital": One-off costs (NRE). 
+      * For a CAR: Tooling is $10M+, Crash testing is $500k+, Prototyping is $2M+. Be realistic.
+      * For a BBQ: Tooling is $30k-$50k.
+      * If White Label: Tooling is <$2k (Packaging only).
+    - "Hidden Costs": Add things users forget (e.g. "3PL Setup fees", "Liability Insurance", "Defect rate allowance").
+
+    RULES FOR BOM (Bill of Materials):
+    - Break the product down into 4-8 main sub-assemblies or parts.
+    - Guess the likely Manufacturing Process (e.g. 'Injection Molding', 'Die Casting', 'Cut & Sew', 'PCB Assembly').
+    - Be specific on materials (e.g. 'ABS Plastic', '304 Stainless Steel', 'Li-Ion Cell').
+
+    Output STRICT JSON:
+    {
+      "playbook": {
+        "productName": "${productName}",
+        "free": {
+          "summary": "Professional executive summary.",
+          "targetCustomer": "Specific persona.",
+          "materials": ["Mat 1", "Mat 2"],
+          "keyFeatures": ["Feat 1", "Feat 2"],
+          
+          "financials": {
+            "complexityTier": "TIER X",
+            "unitEconomics": {
+                "exWorksCost": "Factory Price",
+                "freightCost": "Shipping per unit",
+                "landedCost": "Total Cost in Warehouse",
+                "retailPrice": "Realistic RRP",
+                "grossMargin": "Margin %"
+            },
+            "startupCapital": {
+                "tooling": "Molds/Dies cost",
+                "prototyping": "R&D fees",
+                "certification": "Testing costs",
+                "firstBatchCost": "Inventory cost",
+                "totalLaunchBudget": "Total Cash Required"
+            },
+            "hiddenCosts": ["Hidden Cost 1", "Hidden Cost 2"],
+            "logisticDetails": {
+                "tariffCode": "HS Code",
+                "dutyRate": "Duty %"
+            }
+          },
+
+          "bomDraft": [
+            {
+              "partName": "Part Name (e.g. 'Casing')",
+              "material": "Material (e.g. 'ABS Plastic')",
+              "process": "Mfg Process (e.g. 'Injection Molding')",
+              "qty": 1
+            },
+            {
+              "partName": "Part Name",
+              "material": "Material",
+              "process": "Process",
+              "qty": 1
+            }
+          ],
+
+          "manufacturingApproach": {
+             "approach": [
+                "Strategy 1 (e.g. Modular assembly to reduce shipping volume)", 
+                "Strategy 2 (e.g. Use off-the-shelf powertrain to save R&D)"
+             ],
+             "risks": [
+                "Specific Risk 1 (e.g. 'Homologation failure in EU')", 
+                "Specific Risk 2 (e.g. 'High scrap rate on aluminum panels')"
+             ],
+             "dfmWarnings": ["Warning 1", "Warning 2"],
+             "complianceTasks": ["Regulatory 1", "Regulatory 2"]
+           },
+           
+          "timeline": [
+            "Stage 1: [Name] - [Detail]",
+            "Stage 2: [Name] - [Detail]"
+          ],
+
+          "nextSteps": ["Immediate Action 1", "Immediate Action 2"],
+          
+          "manufacturingRegions": ["Region 1", "Region 2"],
+          "regionRationale": "Why?"
+        }
       }
-    ]
-  }
-}
+    }
+    `;
 
-White label behaviour (sourcingMode = "white-label"):
-- Assume the core product already exists in factories.
-- Focus the approach, risks, and roadmap on:
-  - clarifying minimum acceptable quality
-  - selecting and shortlisting suppliers
-  - requesting and comparing samples
-  - tweaking spec where it is realistic (colour, finish, accessories, packaging)
-  - branding, packaging, labelling and inserts
-  - basic compliance and product safety for markets mentioned
-- Do NOT pretend they are re-inventing the product mechanically.
+    // PARALLEL EXECUTION: Generate text playbook AND blueprint image simultaneously
+    const [completion, imageResponse] = await Promise.all([
+      // Text Generation
+      openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Context: ${idea}` }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.4,
+      }),
 
-Custom behaviour (sourcingMode = "custom"):
-- Assume the user wants something meaningfully different or new.
-- Focus the approach, risks and roadmap on:
-  - defining functional goals and differentiation vs existing products
-  - drawings and engineering (what exists, what is missing)
-  - prototypes and iteration
-  - tooling decisions and amortisation
-  - deeper QC and pre-production checks
-  - IP (design registration, patents) where relevant
+      // Image Generation (Blueprint)
+      openai.images.generate({
+        model: 'dall-e-3',
+        prompt: `A professional technical blueprint drawing of a ${productName || idea}. Style: Architectural blueprint, white technical lines on a classic dark blue grid background. View: Isometric or exploded view. Aesthetic: Clean, precise, engineering diagram, schematic, vector style. No text labels.`,
+        size: '1024x1024',
+        quality: 'standard',
+        n: 1,
+      })
+    ]);
 
-General rules:
-- Use British/Australian spelling where it matters (colour, metre).
-- Be concrete and practical, not academic.
-- Do not mention "sourcingMode" directly to the user; instead adjust tone and content.
-- Keep phases to 5–7 total, each with 3–6 tasks.
-- Tailor everything to the specific product, idea, components and constraints provided.
-`;
+    const json = JSON.parse(completion.choices[0]?.message?.content || '{}');
 
-    const componentsSummary = componentsInfo?.components
-      ? Object.entries(componentsInfo.components as Record<string, string[]>)
-          .map(([section, items]) => `${section}: ${items.join(', ')}`)
-          .join(' | ')
-      : '(none)';
+    if (!json.playbook) json.playbook = { free: {} };
+    if (!json.playbook.free) json.playbook.free = {};
 
-    const subProductsSummary =
-      selectedSubProducts && selectedSubProducts.length
-        ? selectedSubProducts.map((sp: any) => sp.label || sp.id).join(', ')
-        : '(none)';
+    // Process the generated image
+    let finalImageUrl = imageResponse.data?.[0]?.url || null;
 
-    const qAndA =
-      questions && questions.length
-        ? questions
-            .map((q) => {
-              const val = (answers && answers[q.key]) || '';
-              return `Q: ${q.title}\nA: ${val}`;
-            })
-            .join('\n\n')
-        : '(no additional questions answered)';
+    // Upload to Supabase Storage for persistence
+    if (finalImageUrl) {
+      try {
+        // Download the image from OpenAI
+        const imageBuffer = await fetch(finalImageUrl).then(res => res.arrayBuffer());
 
-    const constraintsSummary = constraints
-      ? JSON.stringify(constraints, null, 2)
-      : '(none)';
-    const costSummary = costEstimate
-      ? JSON.stringify(costEstimate, null, 2)
-      : '(none)';
+        // Generate unique filename
+        const timestamp = Date.now();
+        const sanitizedName = (productName || 'project').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const fileName = `${sanitizedName}_${timestamp}.png`;
 
-    const userPrompt = `
-idea:
-${idea || '(none)'}
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('project-images')
+          .upload(fileName, imageBuffer, {
+            contentType: 'image/png',
+            cacheControl: '3600',
+            upsert: false
+          });
 
-productName:
-${productName || '(none)'}
+        if (!uploadError && uploadData) {
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('project-images')
+            .getPublicUrl(fileName);
 
-category:
-${safeCategory}
-
-coreProduct:
-${safeCoreProduct}
-
-sourcingMode:
-${mode}
-
-componentsInfo (raw JSON):
-${JSON.stringify(componentsInfo || {}, null, 2)}
-
-components summary:
-${componentsSummary}
-
-selectedSubProducts:
-${subProductsSummary}
-
-constraints (JSON):
-${constraintsSummary}
-
-costEstimate (JSON):
-${costSummary}
-
-Follow up questions and answers:
-${qAndA}
-
-Now generate the playbook JSON.
-`;
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.35,
-    });
-
-    const raw = completion.choices[0]?.message?.content;
-    if (!raw) {
-      return NextResponse.json(
-        { error: 'No response from AI when generating playbook' },
-        { status: 500 }
-      );
+          finalImageUrl = publicUrl;
+          console.log('✅ Image uploaded to Supabase:', publicUrl);
+        } else {
+          console.warn('⚠️ Supabase upload failed, using OpenAI URL:', uploadError);
+        }
+      } catch (uploadErr) {
+        console.error('Image upload error:', uploadErr);
+        // Fallback to OpenAI URL if upload fails
+      }
     }
 
-    let json: any;
-    try {
-      json = JSON.parse(raw);
-    } catch (e) {
-      console.error('Playbook route JSON parse error:', raw);
-      return NextResponse.json(
-        { error: 'Model returned invalid JSON when generating playbook' },
-        { status: 500 }
-      );
+    // Inject image URL into playbook
+    json.playbook.free.projectImage = finalImageUrl;
+
+    // Default component data
+    json.playbook.free.components = {
+      estimatedComponentCount: 0,
+      subProducts: [],
+      componentList: componentsInfo?.components ? Object.values(componentsInfo.components).flat() : [],
+      supplierTypes: componentsInfo?.supplierTypes || [],
+      notes: "Data from wizard."
+    };
+
+    // Fallback roadmap if AI fails
+    if (!json.playbook.free.roadmapPhases) {
+      json.playbook.free.roadmapPhases = [
+        { id: 'p1', name: 'Engineering Validation (EVT)', tasks: ['Functional Prototype', 'Lab Testing'] },
+        { id: 'p2', name: 'Design Validation (DVT)', tasks: ['Hard Tooling', 'Certification'] }
+      ];
     }
 
-    if (!json.playbook) {
-      return NextResponse.json(
-        { error: 'Model did not return a playbook object' },
-        { status: 500 }
-      );
-    }
-
-    // Light sanity patch
-    json.playbook.productName = json.playbook.productName || productName || safeCoreProduct;
-    json.playbook.category = json.playbook.category || safeCategory;
-    json.playbook.sourcingMode = mode;
+    json.playbook.sourcingMode = sourcingMode;
+    json.playbook.category = category;
 
     return NextResponse.json(json);
-  } catch (err: any) {
-    console.error('Playbook route error:', err);
-    return NextResponse.json(
-      { error: err?.message || 'Unexpected error in playbook route' },
-      { status: 500 }
-    );
+
+  } catch (e: any) {
+    console.error(e);
+    return NextResponse.json({ error: 'Failed to generate playbook' }, { status: 500 });
   }
 }
