@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { renderToStream } from '@react-pdf/renderer';
 import { createElement } from 'react';
 import ProjectSummaryPDF from '@/components/pdf/ProjectSummaryPDF';
@@ -7,11 +7,9 @@ import { cookies } from 'next/headers';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
-
         // Get auth
         const cookieStore = await cookies();
         const supabase = createServerClient(
@@ -35,8 +33,10 @@ export async function GET(
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return new Response('Unauthorized', { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const { id } = await params;
 
         // Fetch project from Supabase
         const { data: projectData, error } = await supabase
