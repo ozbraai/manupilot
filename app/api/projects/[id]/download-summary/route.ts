@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToStream } from '@react-pdf/renderer';
-import { createElement } from 'react';
 import ProjectSummaryPDF from '@/components/pdf/ProjectSummaryPDF';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import React from 'react';
 
 export async function GET(
     request: NextRequest,
@@ -39,39 +39,38 @@ export async function GET(
         const { id } = await params;
 
         // Fetch project from Supabase
-        const { data: projectData, error } = await supabase
+        const { data: project, error } = await supabase
             .from('projects')
             .select('*')
             .eq('id', id)
             .single();
 
-        if (error || !projectData) {
+        if (error || !project) {
             return new Response('Project not found', { status: 404 });
         }
 
-        // Get playbook data from request (passed as query param)
-        const url = new URL(request.url);
-        const playbookDataParam = url.searchParams.get('playbook');
-
-        let playbookData = {};
-        if (playbookDataParam) {
+        // Parse playbook data if exists
+        let playbookData = null;
+        if (project.playbook_free) {
             try {
-                playbookData = JSON.parse(decodeURIComponent(playbookDataParam));
+                playbookData = typeof project.playbook_free === 'string'
+                    ? JSON.parse(project.playbook_free)
+                    : project.playbook_free;
             } catch (e) {
                 console.error('Failed to parse playbook data:', e);
             }
         }
 
-        // Generate PDF using createElement instead of JSX
-        const pdfDoc = createElement(ProjectSummaryPDF, {
-            project: projectData,
+        // Generate PDF using React.createElement
+        const pdfDoc = React.createElement(ProjectSummaryPDF, {
+            project: project,
             playbookFree: playbookData
         });
 
         const stream = await renderToStream(pdfDoc);
 
         // Return as downloadable file
-        const fileName = `${projectData.title?.replace(/[^a-z0-9]/gi, '_') || 'Project'}_Summary_${new Date().toISOString().split('T')[0]}.pdf`;
+        const fileName = `${project.title?.replace(/[^a-z0-9]/gi, '_') || 'Project'}_Summary_${new Date().toISOString().split('T')[0]}.pdf`;
 
         return new Response(stream as any, {
             headers: {
