@@ -62,12 +62,12 @@ export async function GET(
         }
 
         // Generate PDF using React.createElement
-        const pdfDoc = React.createElement(ProjectSummaryPDF, {
+        const pdfDoc = React.createElement(ProjectSummaryPDF as any, {
             project: project,
             playbookFree: playbookData
         });
 
-        const stream = await renderToStream(pdfDoc);
+        const stream = await renderToStream(pdfDoc as any);
 
         // Return as downloadable file
         const fileName = `${project.title?.replace(/[^a-z0-9]/gi, '_') || 'Project'}_Summary_${new Date().toISOString().split('T')[0]}.pdf`;
