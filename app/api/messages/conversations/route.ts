@@ -106,11 +106,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Partner ID required' }, { status: 400 });
     }
 
+    // Check if partnerId is a auth.user ID or a partner record ID
+    const { data: partnerUser } = await supabase
+        .from('auth.users')
+        .select('id')
+        .eq('id', partnerId)
+        .maybeSingle();
+
+    const isUserPartner = !!partnerUser;
+
     // Check if conversation already exists
     let query = supabase
         .from('conversations')
         .select('*')
-        .or(`and(customer_id.eq.${user.id},partner_id.eq.${partnerId}),and(customer_id.eq.${partnerId},partner_id.eq.${user.id})`);
+        .eq('customer_id', user.id);
+
+    if (isUserPartner) {
+        query = query.eq('partner_id', partnerId);
+    } else {
+        query = query.eq('partner_record_id', partnerId);
+    }
 
     if (projectId) query = query.eq('project_id', projectId);
     if (rfqId) query = query.eq('rfq_id', rfqId);
@@ -122,15 +137,22 @@ export async function POST(request: Request) {
     }
 
     // Create new conversation
+    const conversationData: any = {
+        customer_id: user.id,
+        project_id: projectId,
+        rfq_id: rfqId,
+        subject: subject || 'New Conversation',
+    };
+
+    if (isUserPartner) {
+        conversationData.partner_id = partnerId;
+    } else {
+        conversationData.partner_record_id = partnerId;
+    }
+
     const { data: conversation, error } = await supabase
         .from('conversations')
-        .insert({
-            customer_id: user.id,
-            partner_id: partnerId,
-            project_id: projectId,
-            rfq_id: rfqId,
-            subject: subject || 'New Conversation',
-        })
+        .insert(conversationData)
         .select()
         .single();
 
