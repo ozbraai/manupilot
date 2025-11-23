@@ -30,13 +30,14 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all conversations for this user
+    // Get all conversations for this user (including partner_record_id)
     const { data: conversations, error } = await supabase
         .from('conversations')
         .select(`
       *,
       customer:customer_id(id, email),
       partner:partner_id(id, email),
+      partner_record:partner_record_id(id, name, type),
       project:projects(id, title),
       last_message:messages(content, created_at, sender_id)
     `)
@@ -61,10 +62,24 @@ export async function GET(request: Request) {
                 .eq(readField, false)
                 .neq('sender_id', user.id);
 
+            // Determine other user/partner
+            let otherUser;
+            if (conv.partner_record) {
+                // Conversation with a partner record
+                otherUser = {
+                    id: conv.partner_record.id,
+                    email: conv.partner_record.name,
+                    name: conv.partner_record.name,
+                };
+            } else {
+                // Conversation with another user
+                otherUser = isCustomer ? conv.partner : conv.customer;
+            }
+
             return {
                 ...conv,
                 unread_count: count || 0,
-                other_user: isCustomer ? conv.partner : conv.customer,
+                other_user: otherUser,
             };
         })
     );
