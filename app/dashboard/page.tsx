@@ -21,6 +21,8 @@ type Project = {
   description: string | null;
   created_at: string;
   status?: string | null;
+  image_url?: string | null;
+  category?: string | null;
 };
 
 type PlaybookDraft = {
@@ -89,9 +91,21 @@ export default function DashboardPage() {
         setLoadingProjects(true);
         setError(null);
 
+        // Check authentication first
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          console.error('Authentication error:', authError);
+          setError('Please log in to view your projects.');
+          setProjects([]);
+          setLoadingProjects(false);
+          return;
+        }
+
         const { data, error: dbError } = await supabase
           .from('projects')
           .select('*')
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
         if (dbError) {
@@ -102,6 +116,10 @@ export default function DashboardPage() {
         }
 
         setProjects((data || []) as Project[]);
+      } catch (err) {
+        console.error('Unexpected error loading projects:', err);
+        setError('An unexpected error occurred.');
+        setProjects([]);
       } finally {
         setLoadingProjects(false);
       }
@@ -139,10 +157,14 @@ export default function DashboardPage() {
     projects.forEach((project) => {
       const id = project.id;
 
-      // 6.1 Category
-      const catKey = `manupilot_project_${id}_category`;
-      const rawCat = window.localStorage.getItem(catKey);
-      categories[id] = rawCat || 'Other';
+      // 6.1 Category - use database value first, then localStorage as fallback
+      if (project.category) {
+        categories[id] = project.category;
+      } else {
+        const catKey = `manupilot_project_${id}_category`;
+        const rawCat = window.localStorage.getItem(catKey);
+        categories[id] = rawCat || 'Other';
+      }
 
       // 6.2 Progress (read from roadmap completion & playbook)
       try {

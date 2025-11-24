@@ -13,6 +13,7 @@ export default function Navbar() {
 
   // Auth state
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Menus
   const [openMenu, setOpenMenu] = useState<string | null>(null); // desktop dropdowns
@@ -32,6 +33,7 @@ export default function Navbar() {
         data: { user },
       } = await supabase.auth.getUser();
       setUserEmail(user?.email ?? null);
+      setIsAdmin(user?.app_metadata?.role === 'admin');
     }
 
     loadUser();
@@ -264,6 +266,17 @@ export default function Navbar() {
                       <p className="text-xs font-medium text-zinc-500">Signed in as</p>
                       <p className="text-sm font-semibold text-zinc-900 truncate">{userEmail}</p>
                     </div>
+
+                    {/* Admin Link */}
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        className="block px-3 py-2 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors mb-1 font-medium"
+                        onClick={closeAllMenus}
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
 
                     <Link
                       href="/dashboard"

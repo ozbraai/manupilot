@@ -93,6 +93,54 @@ export default function ProfilePage() {
         return;
       }
 
+      // If user is a partner type, create/update their partner record
+      if (partnerType !== 'founder') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log('DEBUG: Attempting to upsert partner record for user:', user.id);
+
+          const partnerData = {
+            user_id: user.id,
+            type: partnerType,
+            name: companyName || fullName || 'Unnamed Partner',
+            region: location,
+            country: location,
+            description: `Partner profile for ${companyName || fullName}`,
+            capabilities: capsArray,
+          };
+
+          // Check if partner record exists
+          const { data: existingPartner } = await supabase
+            .from('partners')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          let partnerError;
+
+          if (existingPartner) {
+            const { error } = await supabase
+              .from('partners')
+              .update(partnerData)
+              .eq('id', existingPartner.id);
+            partnerError = error;
+          } else {
+            const { error } = await supabase
+              .from('partners')
+              .insert(partnerData);
+            partnerError = error;
+          }
+
+          if (partnerError) {
+            console.error('Failed to update partner record (Full Error):', JSON.stringify(partnerError, null, 2));
+            setError(`Failed to create public profile: ${partnerError.message || 'Unknown error'}`);
+            return;
+          } else {
+            console.log('Successfully saved partner record');
+          }
+        }
+      }
+
       setSuccess('Profile updated successfully.');
     } catch (err: any) {
       console.error('Profile save error:', err);

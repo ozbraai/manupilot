@@ -11,7 +11,6 @@ export default function RFQDashboard() {
     const [rfqs, setRfqs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
 
     useEffect(() => {
         async function loadRFQs() {
@@ -23,16 +22,32 @@ export default function RFQDashboard() {
                 .select(`
           *,
           project:projects (
-            title
+            title,
+            description
           )
         `)
+                .eq('status', 'submitted') // Only show submitted RFQs
                 .order('created_at', { ascending: false });
 
             if (error) {
                 console.error('Error loading RFQs:', error);
-            } else {
-                setRfqs(data || []);
+                setLoading(false);
+                return;
             }
+
+            // Fetch quote counts for each RFQ
+            const rfqsWithQuotes = await Promise.all(
+                (data || []).map(async (rfq) => {
+                    const { count } = await supabase
+                        .from('quotes')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('rfq_id', rfq.id);
+
+                    return { ...rfq, quote_count: count || 0 };
+                })
+            );
+
+            setRfqs(rfqsWithQuotes);
             setLoading(false);
         }
 
@@ -41,9 +56,14 @@ export default function RFQDashboard() {
 
     // Filter Logic
     const filteredRfqs = rfqs.filter(rfq => {
-        const matchesSearch = rfq.project?.title?.toLowerCase().includes(search.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || rfq.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        // If no search, show all
+        if (!search) return true;
+
+        const title = rfq.project?.title?.toLowerCase() || '';
+        const desc = rfq.project?.description?.toLowerCase() || '';
+        const searchLower = search.toLowerCase();
+
+        return title.includes(searchLower) || desc.includes(searchLower);
     });
 
     return (
@@ -53,10 +73,10 @@ export default function RFQDashboard() {
                 <div className="max-w-6xl mx-auto px-6 py-10 md:py-12">
                     <div>
                         <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
-                            RFQ Dashboard
+                            RFQ Marketplace
                         </h1>
                         <p className="mt-2 text-slate-600 max-w-xl">
-                            Track and manage your Requests for Quotation. View status, details, and supplier responses.
+                            Browse open manufacturing opportunities. Submit quotes and win new business.
                         </p>
                     </div>
                 </div>
@@ -66,33 +86,19 @@ export default function RFQDashboard() {
 
                 {/* TOOLBAR */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="relative">
+                    <div className="relative flex-1 max-w-md">
                         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search by project..."
+                            placeholder="Search by project name..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full sm:w-64 pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                         />
                     </div>
 
-                    <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200">
-                        {(['all', 'submitted', 'draft', 'completed'] as const).map((key) => {
-                            const active = statusFilter === key;
-                            return (
-                                <button
-                                    key={key}
-                                    onClick={() => setStatusFilter(key)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${active
-                                        ? 'bg-slate-900 text-white shadow-sm'
-                                        : 'text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                >
-                                    {key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1)}
-                                </button>
-                            );
-                        })}
+                    <div className="text-sm text-slate-600">
+                        {filteredRfqs.length} {filteredRfqs.length === 1 ? 'opportunity' : 'opportunities'} available
                     </div>
                 </div>
 
@@ -110,9 +116,9 @@ export default function RFQDashboard() {
                         </div>
                         <h3 className="text-lg font-semibold text-slate-900">No RFQs found</h3>
                         <p className="text-slate-500 mt-1 max-w-sm mx-auto">
-                            {search || statusFilter !== 'all'
-                                ? "Try adjusting your filters."
-                                : "You haven't submitted any RFQs yet."}
+                            {search
+                                ? "Try adjusting your search."
+                                : "No open RFQs at the moment. Check back soon!"}
                         </p>
                     </div>
                 ) : (

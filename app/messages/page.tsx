@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 type Conversation = {
@@ -18,10 +20,13 @@ type Conversation = {
     };
 };
 
-export default function MessagesPage() {
+function MessagesContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const initialConversationId = searchParams?.get('id');
+
     const [conversations, setConversations] = useState<Conversation[]>([]);
-    const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+    const [selectedConversation, setSelectedConversation] = useState<string | null>(initialConversationId);
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -45,7 +50,7 @@ export default function MessagesPage() {
                     schema: 'public',
                     table: 'messages',
                     filter: `conversation_id=eq.${selectedConversation}`,
-                }, (payload) => {
+                }, (payload: any) => {
                     setMessages(prev => [...prev, payload.new]);
                     scrollToBottom();
                 })
@@ -80,17 +85,35 @@ export default function MessagesPage() {
     async function sendMessage() {
         if (!newMessage.trim() || !selectedConversation) return;
 
+        console.log('Sending message to conversation:', selectedConversation);
         setSending(true);
-        await fetch(`/api/messages/${selectedConversation}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: newMessage.trim() }),
-        });
+        try {
+            const res = await fetch(`/api/messages/${selectedConversation}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newMessage.trim() }),
+            });
 
-        setNewMessage('');
-        loadMessages(selectedConversation);
-        loadConversations(); // Refresh to update unread counts
-        setSending(false);
+            if (!res.ok) {
+                const err = await res.json();
+                console.error('Failed to send message:', err);
+                alert(`Error sending message: ${err.error || 'Unknown error'}`);
+                setSending(false);
+                return;
+            }
+
+            const data = await res.json();
+            console.log('Message sent successfully:', data);
+
+            setNewMessage('');
+            loadMessages(selectedConversation);
+            loadConversations(); // Refresh to update unread counts
+        } catch (error) {
+            console.error('Error in sendMessage:', error);
+            alert('Network error sending message');
+        } finally {
+            setSending(false);
+        }
     }
 
     function scrollToBottom() {
@@ -178,8 +201,8 @@ export default function MessagesPage() {
                                 return (
                                     <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-md px-4 py-2 rounded-2xl ${isMine
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-white border border-slate-200 text-slate-900'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-white border border-slate-200 text-slate-900'
                                             }`}>
                                             <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                                             <p className={`text-xs mt-1 ${isMine ? 'text-blue-100' : 'text-slate-400'}`}>
@@ -193,23 +216,34 @@ export default function MessagesPage() {
 
                         {/* Message Input */}
                         <div className="p-4 bg-white border-t border-slate-200">
-                            <div className="flex gap-2">
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    sendMessage();
+                                }}
+                                className="flex gap-2"
+                            >
                                 <textarea
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
-                                    onKeyPress={handleKeyPress}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            sendMessage();
+                                        }
+                                    }}
                                     placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
                                     className="flex-1 resize-none rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     rows={2}
                                 />
                                 <button
-                                    onClick={sendMessage}
+                                    type="submit"
                                     disabled={!newMessage.trim() || sending}
                                     className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
-                                    Send
+                                    {sending ? '...' : 'Send'}
                                 </button>
-                            </div>
+                            </form>
                         </div>
                     </>
                 ) : (
@@ -219,5 +253,17 @@ export default function MessagesPage() {
                 )}
             </div>
         </main>
+    );
+}
+
+export default function MessagesPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <p className="text-slate-500">Loading...</p>
+            </div>
+        }>
+            <MessagesContent />
+        </Suspense>
     );
 }

@@ -18,12 +18,12 @@ type ProjectKeyInfoProps = {
 export default function ProjectKeyInfo({ project, keyInfo, free = {}, onUpdate }: ProjectKeyInfoProps) {
   // Defensive: safely extract fields even if missing
   const safeCustomer =
-    free.targetCustomer ||
-    free.customer ||
-    free.targetMarket ||
+    free?.targetCustomer ||
+    free?.customer ||
+    free?.targetMarket ||
     '';
 
-  const safeSummary = free.summary || '';
+  const safeSummary = free?.summary || '';
   const safeCategory = keyInfo.category || 'General product';
   const safeSourcing = keyInfo.sourcingMode || 'custom';
 
@@ -32,9 +32,9 @@ export default function ProjectKeyInfo({ project, keyInfo, free = {}, onUpdate }
 
   useEffect(() => {
     setDraftCustomer(
-      free.targetCustomer ||
-      free.customer ||
-      free.targetMarket ||
+      free?.targetCustomer ||
+      free?.customer ||
+      free?.targetMarket ||
       ''
     );
   }, [free]);

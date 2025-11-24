@@ -2,8 +2,21 @@
 
 import React from 'react';
 import Link from 'next/link';
+import {
+  Home,
+  ListChecks,
+  BadgeDollarSign,
+  Factory,
+  FlaskConical,
+  Route,
+  ClipboardList,
+  Activity,
+  Ship,
+  Truck,
+  Folder
+} from 'lucide-react';
 
-type View = 'overview' | 'bom' | 'financials' | 'roadmap' | 'sourcing';
+type View = 'overview' | 'bom' | 'financials' | 'roadmap' | 'sourcing' | 'samples';
 
 type ProjectSidebarProps = {
   activeView: View;
@@ -15,156 +28,121 @@ type ProjectSidebarProps = {
 export default function ProjectSidebar({ activeView, onChangeView, title, rfqStatus }: ProjectSidebarProps) {
 
   const navItems = [
-    // PHASE 1: PLAN
-    { id: 'overview', label: '🏠 Overview', group: 'Definition' },
-    { id: 'bom', label: '🏗️ Specs & BOM', group: 'Definition' },
-    { id: 'financials', label: '💰 Financials', group: 'Definition' },
+    // PHASE 1: PRODUCT DEFINITION
+    { id: 'overview', label: 'Product Overview', icon: Home, group: 'phase-1' },
+    { id: 'bom', label: 'Product Details', icon: ListChecks, group: 'phase-1' },
+    { id: 'financials', label: 'Cost & Pricing', icon: BadgeDollarSign, group: 'phase-1' },
 
-    // PHASE 2: EXECUTE
-    { id: 'roadmap', label: '✅ Roadmap', group: 'Execution' },
+    // PHASE 2: SOURCING & VALIDATION
     {
       id: 'sourcing',
-      label: '🏭 Suppliers & RFQ',
-      group: 'Execution',
+      label: 'Suppliers & Quotes',
+      icon: Factory,
+      group: 'phase-2',
       badge: rfqStatus === 'submitted' ? 'SENT' : undefined,
-      badgeColor: rfqStatus === 'submitted' ? 'bg-emerald-500 text-white' : undefined
+      badgeColor: rfqStatus === 'submitted' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : undefined
     },
-    { id: 'samples', label: '📦 Samples & QC', group: 'Execution', disabled: true, badge: 'LOCKED' },
+    { id: 'samples', label: 'Samples & Quality Checks', icon: FlaskConical, group: 'phase-2' },
+    { id: 'roadmap', label: 'Development Roadmap', icon: Route, group: 'phase-2' },
 
-    // PHASE 3: ORDER
-    { id: 'orders', label: '📝 Purchase Orders', group: 'Procurement', disabled: true, badge: 'LOCKED' },
-    { id: 'logistics', label: '🚢 Freight & Customs', group: 'Procurement', disabled: true, badge: 'LOCKED' },
+    // PHASE 3: PRODUCTION
+    { id: 'orders', label: 'Orders & Production', icon: ClipboardList, group: 'phase-3', disabled: true, badge: 'LOCKED' },
+    { id: 'production-monitoring', label: 'Production Monitoring', icon: Activity, group: 'phase-3', disabled: true, badge: 'FUTURE' },
+
+    // PHASE 4: LOGISTICS & IMPORTING
+    { id: 'logistics', label: 'Shipping & Customs', icon: Ship, group: 'phase-4', disabled: true, badge: 'LOCKED' },
+    { id: 'freight-tracking', label: 'Freight Tracking', icon: Truck, group: 'phase-4', disabled: true, badge: 'FUTURE' },
 
     // ASSETS
-    { id: 'files', label: '📂 Project Vault', group: 'Assets', disabled: true, badge: 'SOON' },
+    { id: 'files', label: 'Project Files', icon: Folder, group: 'assets', disabled: true, badge: 'SOON' },
+  ];
+
+  const phases = [
+    { id: 'phase-1', title: 'PHASE 1 — PRODUCT DEFINITION' },
+    { id: 'phase-2', title: 'PHASE 2 — SOURCING & VALIDATION' },
+    { id: 'phase-3', title: 'PHASE 3 — PRODUCTION' },
+    { id: 'phase-4', title: 'PHASE 4 — LOGISTICS & IMPORTING' },
+    { id: 'assets', title: 'ASSETS' },
   ];
 
   return (
-    <aside className="w-64 bg-zinc-950 text-zinc-300 flex flex-col min-h-screen border-r border-zinc-800">
+    <aside className="w-64 bg-[#F8F9FA] flex flex-col h-full border-r border-black/5 lg:max-h-full lg:overflow-y-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Project Title Header */}
-      <div className="h-16 flex items-center px-6 border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
+      <div className="h-16 flex items-center px-4 border-b border-black/5 bg-[#F8F9FA]">
         <div className="flex flex-col overflow-hidden">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Project Workspace</span>
-          <span className="font-semibold text-white truncate text-sm" title={title}>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.6px] text-[#999999]">Project Workspace</span>
+          <span className="font-semibold text-[#222222] truncate text-sm mt-0.5" title={title}>
             {title || 'Untitled Project'}
           </span>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-6 px-3 space-y-8">
+      <nav className="flex-1 py-3 px-3">
+        {phases.map((phase, phaseIndex) => (
+          <div key={phase.id}>
+            {phaseIndex > 0 && (
+              <div className="h-px bg-black/5 my-2.5 mx-1" />
+            )}
+            <p className="px-3.5 text-[11px] font-semibold uppercase tracking-[0.6px] text-[#999999] mt-[18px] mb-1.5">
+              {phase.title}
+            </p>
+            <div className="space-y-0.5">
+              {navItems.filter(i => i.group === phase.id).map((item: any) => {
+                const Icon = item.icon;
+                const isActive = activeView === item.id;
+                const isDisabled = item.disabled;
 
-        {/* Group 1: Definition */}
-        <div>
-          <p className="px-3 text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3">
-            Phase 1: Definition
-          </p>
-          <div className="space-y-1">
-            {navItems.filter(i => i.group === 'Definition').map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onChangeView(item.id as View)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${activeView === item.id
-                  ? 'bg-zinc-900 text-white shadow-lg shadow-zinc-900/50 border border-zinc-700'
-                  : 'hover:bg-zinc-900/50 text-zinc-400 hover:text-white'
-                  }`}
-              >
-                <span>{item.label.split(' ')[0]}</span>
-                <span className="flex-1 text-left">{item.label.split(' ').slice(1).join(' ')}</span>
-              </button>
-            ))}
+                return (
+                  <button
+                    key={item.id}
+                    disabled={isDisabled}
+                    onClick={() => !isDisabled && onChangeView(item.id as View)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[13px] font-medium rounded-md transition-all duration-150 group ${isActive
+                      ? 'bg-white text-[#222222] shadow-sm border border-black/8'
+                      : isDisabled
+                        ? 'text-[#999999] cursor-not-allowed'
+                        : 'text-[#222222] hover:bg-black/[0.04]'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2.5 flex-1">
+                      <Icon
+                        size={18}
+                        strokeWidth={1.8}
+                        className={`flex-shrink-0 transition-colors ${isActive
+                          ? 'text-black/90'
+                          : isDisabled
+                            ? 'text-black/30'
+                            : 'text-black/55 group-hover:text-black/80'
+                          }`}
+                      />
+                      <span className={isDisabled ? 'opacity-50' : ''}>{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span className={`text-[11px] px-1.5 py-0.5 rounded font-semibold ${item.badge === 'LOCKED'
+                        ? 'bg-black/5 text-[#666666]'
+                        : item.badge === 'FUTURE'
+                          ? 'bg-black/[0.03] text-[#888888]'
+                          : item.badge === 'SOON'
+                            ? 'bg-black/[0.03] text-[#999999]'
+                            : item.badgeColor || 'bg-black/5 text-[#666666]'
+                        }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-
-        {/* Group 2: Execution */}
-        <div>
-          <p className="px-3 text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3">
-            Phase 2: Execution
-          </p>
-          <div className="space-y-1">
-            {navItems.filter(i => i.group === 'Execution').map((item: any) => (
-              <button
-                key={item.id}
-                disabled={item.disabled}
-                onClick={() => !item.disabled && onChangeView(item.id as View)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg group transition-all duration-200 ${activeView === item.id
-                    ? 'bg-zinc-900 text-white shadow-lg shadow-zinc-900/50 border border-zinc-700'
-                    : item.disabled
-                      ? 'opacity-40 cursor-not-allowed'
-                      : 'hover:bg-zinc-900/50 text-zinc-400 hover:text-white'
-                  }`}
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  <span className="grayscale group-hover:grayscale-0 transition-all">{item.label.split(' ')[0]}</span>
-                  <span className="text-left">{item.label.split(' ').slice(1).join(' ')}</span>
-                </div>
-                {item.badge && (
-                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${item.badgeColor || 'bg-zinc-800 text-zinc-400'}`}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Group 3: Procurement (Future) */}
-        <div>
-          <p className="px-3 text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3">
-            Phase 3: Procurement
-          </p>
-          <div className="space-y-1">
-            {navItems.filter(i => i.group === 'Procurement').map((item) => (
-              <button
-                key={item.id}
-                disabled={item.disabled}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg opacity-40 cursor-not-allowed"
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  <span>{item.label.split(' ')[0]}</span>
-                  <span className="text-left">{item.label.split(' ').slice(1).join(' ')}</span>
-                </div>
-                <span className="text-[9px] bg-zinc-800 px-2 py-0.5 rounded-full text-zinc-500 font-bold">
-                  {item.badge}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Group 4: Assets */}
-        <div>
-          <p className="px-3 text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3">
-            Assets
-          </p>
-          <div className="space-y-1">
-            {navItems.filter(i => i.group === 'Assets').map((item) => (
-              <button
-                key={item.id}
-                disabled={item.disabled}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg opacity-40 cursor-not-allowed"
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  <span>{item.label.split(' ')[0]}</span>
-                  <span className="text-left">{item.label.split(' ').slice(1).join(' ')}</span>
-                </div>
-                {item.badge && (
-                  <span className="text-[9px] bg-zinc-800 px-2 py-0.5 rounded-full text-zinc-500 font-bold">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
+        ))}
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-950">
+      <div className="p-4 border-t border-black/5 bg-[#F8F9FA]">
         <Link
           href="/dashboard"
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-sm text-zinc-300 hover:text-white transition-all border border-zinc-800 hover:border-zinc-700"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-md bg-white hover:bg-black/[0.04] text-sm text-[#222222] transition-all border border-black/8 hover:border-black/10 shadow-sm"
         >
           <span>←</span> Exit Project
         </Link>

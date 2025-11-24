@@ -9,6 +9,7 @@ type RFQCardProps = {
         created_at: string;
         status: string;
         rfq_data: any;
+        quote_count?: number;
         project: {
             title: string;
         };
@@ -57,7 +58,7 @@ export default function RFQCard({ rfq }: RFQCardProps) {
 
             {/* Content */}
             <div className="flex-1">
-                <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">
+                <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
                     {project?.title || 'Untitled Project'}
                 </h3>
                 <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-3">
@@ -74,7 +75,15 @@ export default function RFQCard({ rfq }: RFQCardProps) {
             <div className="pt-4 border-t border-slate-50 mt-4">
                 <div className="flex items-center justify-between text-xs text-slate-400">
                     <span>Ref: {rfq.id.slice(0, 8)}</span>
-                    <span>{date}</span>
+                    <div className="flex items-center gap-2">
+                        {rfq.quote_count !== undefined && (
+                            <span className={`font-medium ${rfq.quote_count > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
+                                {rfq.quote_count} {rfq.quote_count === 1 ? 'Quote' : 'Quotes'}
+                            </span>
+                        )}
+                        <span>•</span>
+                        <span>{date}</span>
+                    </div>
                 </div>
             </div>
         </div>

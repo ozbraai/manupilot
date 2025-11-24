@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import QuoteSubmissionForm from '@/components/quotes/QuoteSubmissionForm';
+import QuotesComparison from '@/components/quotes/QuotesComparison';
 
 export default function RFQDetailPage() {
     const params = useParams();
@@ -14,6 +16,9 @@ export default function RFQDetailPage() {
     const [project, setProject] = useState<any>(null);
     const [playbook, setPlaybook] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [quotes, setQuotes] = useState<any[]>([]);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [isOwner, setIsOwner] = useState(false);
 
     useEffect(() => {
         async function loadRFQ() {
@@ -53,6 +58,49 @@ export default function RFQDetailPage() {
         loadRFQ();
     }, [id]);
 
+    const [partnerRecord, setPartnerRecord] = useState<any>(null);
+
+    // Load user, partner record, and quotes
+    useEffect(() => {
+        async function loadQuotesAndUser() {
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser();
+            setCurrentUser(user);
+
+            // Check if user owns this RFQ
+            if (user && project) {
+                setIsOwner(project.user_id === user.id);
+            }
+
+            // Check if user is a registered partner
+            if (user) {
+                const { data: partner } = await supabase
+                    .from('partners')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .single();
+                setPartnerRecord(partner);
+            }
+
+            // Load quotes if we have an RFQ
+            if (id) {
+                try {
+                    const res = await fetch(`/api/quotes?rfqId=${id}`);
+                    if (res.ok) {
+                        const { quotes: fetchedQuotes } = await res.json();
+                        setQuotes(fetchedQuotes || []);
+                    }
+                } catch (error) {
+                    console.error('Error loading quotes:', error);
+                }
+            }
+        }
+
+        if (id) {
+            loadQuotesAndUser();
+        }
+    }, [id, project]); // Keep project in dependency array for ownership check updates
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -61,7 +109,7 @@ export default function RFQDetailPage() {
         );
     }
 
-    if (!rfq || !project) {
+    if (!rfq) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="text-center">
@@ -73,6 +121,13 @@ export default function RFQDetailPage() {
             </div>
         );
     }
+
+    // Handle missing project data (RLS issue)
+    const projectData = project || {
+        title: 'Project Details Restricted',
+        description: 'You do not have permission to view the full project details, but you can still view the RFQ requirements.',
+        user_id: null
+    };
 
     const rfqData = rfq.rfq_data || {};
     const matchCount = rfqData.matched_partner_ids?.length || 0;
@@ -114,7 +169,7 @@ export default function RFQDetailPage() {
                             )}
                             <div>
                                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">REQUEST FOR QUOTE</p>
-                                <h1 className="text-3xl md:text-4xl font-bold text-slate-900">{project.title}</h1>
+                                <h1 className="text-3xl md:text-4xl font-bold text-slate-900">{projectData.title}</h1>
                             </div>
                         </div>
                         <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium ${getStatusColor(rfq.status)}`}>
@@ -123,8 +178,8 @@ export default function RFQDetailPage() {
                         </span>
                     </div>
 
-                    {(project.description || playbook?.summary) && (
-                        <p className="text-slate-600 text-base max-w-3xl">{project.description || playbook?.summary}</p>
+                    {(projectData.description || playbook?.summary) && (
+                        <p className="text-slate-600 text-base max-w-3xl">{projectData.description || playbook?.summary}</p>
                     )}
 
                     {matchCount > 0 && (
@@ -369,16 +424,77 @@ export default function RFQDetailPage() {
                     </div>
                 )}
 
-                {/* Footer Actions */}
-                <div className="bg-slate-900 rounded-2xl p-8 text-center">
-                    <div className="mb-4">
-                        <p className="text-slate-300 text-sm mb-2">Interested in this project?</p>
-                        <p className="text-slate-400 text-xs">Submit your detailed proposal including pricing, lead times, and capabilities</p>
+                {/* Quotes Section */}
+                {isOwner && quotes.length > 0 && (
+                    <div className="mb-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-2xl font-bold text-slate-900">Quotes Received ({quotes.length})</h2>
+                        </div>
+                        <QuotesComparison
+                            quotes={quotes}
+                            rfqId={id}
+                            onQuoteAccepted={async () => {
+                                // Reload quotes after acceptance
+                                const res = await fetch(`/api/quotes?rfqId=${id}`);
+                                if (res.ok) {
+                                    const { quotes: fetchedQuotes } = await res.json();
+                                    setQuotes(fetchedQuotes || []);
+                                }
+                            }}
+                        />
                     </div>
-                    <button className="px-8 py-3 bg-white text-slate-900 rounded-lg font-semibold hover:bg-slate-100 transition-colors">
-                        Submit Proposal
-                    </button>
-                </div>
+                )}
+
+                {/* Quote Submission Form for Partners */}
+                {!isOwner && currentUser && partnerRecord && (
+                    <div className="mb-6">
+                        <QuoteSubmissionForm
+                            rfqId={id}
+                            partnerId={partnerRecord.id}
+                            onQuoteSubmitted={async () => {
+                                alert('Quote submitted successfully!');
+                                // Reload quotes
+                                const res = await fetch(`/api/quotes?rfqId=${id}`);
+                                if (res.ok) {
+                                    const { quotes: fetchedQuotes } = await res.json();
+                                    setQuotes(fetchedQuotes || []);
+                                }
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* Registration Prompt for Non-Partners */}
+                {!isOwner && currentUser && !partnerRecord && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 mb-6 text-center">
+                        <h3 className="text-lg font-bold text-amber-900 mb-2">Want to submit a quote?</h3>
+                        <p className="text-amber-700 mb-4 max-w-md mx-auto">
+                            You need to register as a manufacturing partner to submit quotes for projects.
+                        </p>
+                        <button
+                            onClick={() => alert('Please contact admin to register as a partner.')}
+                            className="px-6 py-2.5 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors"
+                        >
+                            Register as Partner
+                        </button>
+                    </div>
+                )}
+
+                {/* Footer Actions - Only show if not logged in or no quotes section shown */}
+                {!currentUser && (
+                    <div className="bg-slate-900 rounded-2xl p-8 text-center">
+                        <div className="mb-4">
+                            <p className="text-slate-300 text-sm mb-2">Interested in this project?</p>
+                            <p className="text-slate-400 text-xs">Log in to submit your quote</p>
+                        </div>
+                        <button
+                            onClick={() => router.push('/login')}
+                            className="px-8 py-3 bg-white text-slate-900 rounded-lg font-semibold hover:bg-slate-100 transition-colors"
+                        >
+                            Log In to Submit Quote
+                        </button>
+                    </div>
+                )}
 
             </div>
         </main>

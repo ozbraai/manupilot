@@ -34,31 +34,40 @@ export async function GET(
 
     const { id: conversationId } = await params;
 
-    // Verify user is part of this conversation
-    const { data: conversation, error: convError } = await supabase
+    // Get current user's partner record if any
+    const { data: partnerRecord } = await supabase
+        .from('partners')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    let query = supabase
         .from('conversations')
         .select('*')
-        .eq('id', conversationId)
-        .or(`customer_id.eq.${user.id},partner_id.eq.${user.id}`)
-        .single();
+        .eq('id', conversationId);
+
+    if (partnerRecord) {
+        query = query.or(`customer_id.eq.${user.id},partner_id.eq.${user.id},partner_record_id.eq.${partnerRecord.id}`);
+    } else {
+        query = query.or(`customer_id.eq.${user.id},partner_id.eq.${user.id}`);
+    }
+
+    const { data: conversation, error: convError } = await query.single();
 
     if (convError || !conversation) {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
     // Get all messages
-    const { data: messages, error: messagesError } = await supabase
+    const { data: messages, error } = await supabase
         .from('messages')
-        .select(`
-      *,
-      sender:sender_id(id, email)
-    `)
+        .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
 
-    if (messagesError) {
-        console.error('Error fetching messages:', messagesError);
-        return NextResponse.json({ error: messagesError.message }, { status: 500 });
+    if (error) {
+        console.error('Error fetching messages:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     // Mark messages as read for current user
@@ -112,13 +121,25 @@ export async function POST(
         return NextResponse.json({ error: 'Message content required' }, { status: 400 });
     }
 
-    // Verify user is part of this conversation
-    const { data: conversation } = await supabase
+    // Get current user's partner record if any
+    const { data: partnerRecord } = await supabase
+        .from('partners')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    let query = supabase
         .from('conversations')
         .select('*')
-        .eq('id', conversationId)
-        .or(`customer_id.eq.${user.id},partner_id.eq.${user.id}`)
-        .single();
+        .eq('id', conversationId);
+
+    if (partnerRecord) {
+        query = query.or(`customer_id.eq.${user.id},partner_id.eq.${user.id},partner_record_id.eq.${partnerRecord.id}`);
+    } else {
+        query = query.or(`customer_id.eq.${user.id},partner_id.eq.${user.id}`);
+    }
+
+    const { data: conversation } = await query.single();
 
     if (!conversation) {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });

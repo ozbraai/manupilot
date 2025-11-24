@@ -48,12 +48,17 @@ export default function PlaybookSummaryPage() {
         return;
       }
 
+      // Get category from localStorage (set during wizard)
+      const category = window.localStorage.getItem('manupilot_temp_category') || 'Other';
+
       const { data: project, error } = await supabase
         .from('projects')
         .insert({
           title: playbook.productName || 'New Project',
           description: playbook.free.summary,
           user_id: user.id,
+          image_url: playbook.free.projectImage || null, // Save the project image URL
+          category: category, // Save the category to database
         })
         .select()
         .single();
@@ -74,8 +79,9 @@ export default function PlaybookSummaryPage() {
       });
       window.localStorage.setItem(`manupilot_project_${project.id}_roadmap`, JSON.stringify(roadmapState));
 
-      // Clear draft
+      // Clear draft and temp category
       window.localStorage.removeItem('manupilotPlaybook');
+      window.localStorage.removeItem('manupilot_temp_category');
 
       router.push(`/projects/${project.id}`);
     } finally {

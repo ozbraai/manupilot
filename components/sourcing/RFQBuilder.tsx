@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import PartnerCard, { Partner } from '@/components/partners/PartnerCard';
+import { PlaybookV2 } from '@/types/playbook';
 
 type RFQBuilderProps = {
   projectId: string;
@@ -11,8 +12,67 @@ type RFQBuilderProps = {
   bomCount: number;
   targetPrice: string;
   targetMoq: string;
+  playbook?: PlaybookV2; // Added playbook prop
   onSuccess?: () => void;
 };
+
+// === HELPER: CATEGORY GUIDANCE ===
+function getCategoryGuidance(category: string = '', mode: string): string[] {
+  const cat = category.toLowerCase();
+  const common = [
+    "Ask about their defect rate (AQL) policy.",
+    "Confirm payment terms for the first order (usually 30% deposit).",
+    "Ask if they have experience exporting to your target market."
+  ];
+
+  if (cat.includes('clothing') || cat.includes('apparel') || cat.includes('wear')) {
+    return [
+      "Ask about fabric weight (GSM) and composition tolerance.",
+      "Confirm shrinkage rates after washing.",
+      "Ask about their pattern-making capability.",
+      ...common
+    ];
+  }
+  if (cat.includes('electronic') || cat.includes('device') || cat.includes('gadget')) {
+    return [
+      "Ask about certifications (FCC, CE, UL) availability.",
+      "Confirm battery type and safety reports (MSDS).",
+      "Ask about PCB layer count and component sourcing.",
+      ...common
+    ];
+  }
+  if (cat.includes('kitchen') || cat.includes('cook') || cat.includes('knife')) {
+    return [
+      "Ask about food-grade certifications (FDA/LFGB).",
+      "Confirm steel hardness (HRC) and heat treatment process.",
+      "Ask about dishwasher safety and material durability.",
+      ...common
+    ];
+  }
+  if (cat.includes('outdoor') || cat.includes('camp') || cat.includes('sport')) {
+    return [
+      "Ask about UV resistance and weatherproofing.",
+      "Confirm load-bearing capacity and safety tests.",
+      "Ask about fabric denier and coating types.",
+      ...common
+    ];
+  }
+  if (cat.includes('beauty') || cat.includes('cosmetic')) {
+    return [
+      "Ask about ingredient lists and stability testing.",
+      "Confirm packaging compatibility with the formula.",
+      "Ask about filling capacity and lead times.",
+      ...common
+    ];
+  }
+
+  return [
+    "Ask about their main production machinery for this item.",
+    "Confirm if they do all processes in-house or outsource.",
+    "Ask for photos of similar products they have made.",
+    ...common
+  ];
+}
 
 export default function RFQBuilder({
   projectId,
@@ -21,6 +81,7 @@ export default function RFQBuilder({
   bomCount,
   targetPrice,
   targetMoq,
+  playbook,
   onSuccess
 }: RFQBuilderProps) {
 
@@ -31,6 +92,9 @@ export default function RFQBuilder({
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [matchedPartners, setMatchedPartners] = useState<Partner[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
+
+  // Message Builder State
+  const [messageBody, setMessageBody] = useState('');
 
   // Default questions based on mode
   const [questions, setQuestions] = useState<string[]>(
@@ -51,6 +115,22 @@ export default function RFQBuilder({
   // Derived
   const isWhiteLabel = sourcingMode === 'white-label';
   const docTitle = isWhiteLabel ? 'Request for Quotation (Private Label)' : 'Request for Quotation (OEM Manufacturing)';
+  const categoryGuidance = getCategoryGuidance(playbook?.category, sourcingMode);
+
+  // Initialize Message Body
+  useEffect(() => {
+    const specs = [
+      `Product: ${playbook?.coreProduct || projectTitle}`,
+      `Category: ${playbook?.category || 'General'}`,
+      `Target Qty: ${targetMoq}`,
+      `Target Price: ${targetPrice}`,
+      playbook?.free?.materials?.length ? `Materials: ${playbook.free.materials.join(', ')}` : '',
+    ].filter(Boolean).join('\n- ');
+
+    const initialMsg = `Hi,\n\nI am the Purchasing Manager for a new project. We are looking for a factory to produce a ${playbook?.category || 'product'}: ${projectTitle}.\n\nKey Specifications:\n- ${specs}\n\nPlease see the attached RFQ for full details.\n\nCould you please:\n1. Confirm if you can manufacture this?\n2. Provide a rough EXW quote based on the attached specs?\n\nThanks,`;
+
+    setMessageBody(initialMsg);
+  }, [playbook, projectTitle, targetMoq, targetPrice]);
 
   // Load matched partners on mount
   useEffect(() => {
@@ -122,6 +202,7 @@ export default function RFQBuilder({
         includeLogo,
         includePackaging,
         questions,
+        messageBody, // Include the custom message
         generatedAt: new Date().toISOString(),
       };
 
@@ -167,7 +248,7 @@ export default function RFQBuilder({
     return (
       <div className="space-y-8">
         {/* Success Message */}
-        <div className="bg-white border border-green-200 rounded-2xl p-12 text-center shadow-sm">
+        <div className="bg-white border border-green-200 rounded-2xl p-8 md:p-12 text-center shadow-sm">
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
             ✅
           </div>
@@ -185,7 +266,7 @@ export default function RFQBuilder({
 
         {/* Matched Partners */}
         {matchedPartners.length > 0 && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-6">
               <span className="text-xl">🤝</span>
               <h3 className="text-lg font-bold text-slate-900">Matched Manufacturers</h3>
@@ -196,15 +277,50 @@ export default function RFQBuilder({
 
             <div className="grid gap-4 md:grid-cols-2">
               {matchedPartners.map(partner => (
-                <PartnerCard
-                  key={partner.id}
-                  partner={partner}
-                  basePath="manufacturers"
-                />
+                <div key={partner.id} className="relative">
+                  {/* Optional: Add match reason badge if we had the data */}
+                  {/* <div className="absolute top-4 right-4 z-20 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full">
+                      95% Match
+                   </div> */}
+                  <PartnerCard
+                    partner={partner}
+                    basePath="manufacturers"
+                  />
+                </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* Quotes & Responses (Placeholder) */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xl">💬</span>
+            <h3 className="text-lg font-bold text-slate-900">Quotes & Responses</h3>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Supplier</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Unit Price</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">MOQ</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Action</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-200">
+                {/* Placeholder Row */}
+                <tr>
+                  <td className="px-4 py-8 text-center text-sm text-slate-500 italic" colSpan={5}>
+                    No quotes received yet. Suppliers will respond here.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     );
   }
@@ -215,50 +331,62 @@ export default function RFQBuilder({
       {/* LEFT COLUMN: BUILDER */}
       <div className="lg:col-span-2 space-y-8">
 
-        {/* 1. REQUIREMENTS */}
+        {/* 0. PRE-RFQ GUIDANCE */}
+        <section className="bg-sky-50 border border-sky-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">💡</span>
+            <h3 className="font-bold text-sky-900">Before you send RFQs</h3>
+          </div>
+          <p className="text-sm text-sky-800 mb-3">
+            Suppliers in the <strong>{playbook?.category || 'manufacturing'}</strong> category expect specific questions. Include these to look like a pro:
+          </p>
+          <ul className="space-y-2">
+            {categoryGuidance.map((tip, idx) => (
+              <li key={idx} className="flex items-start gap-2 text-sm text-sky-900">
+                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-sky-500 flex-shrink-0" />
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* 1. RFQ SUMMARY & MESSAGE */}
         <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">1</div>
-            <h3 className="font-semibold text-slate-900">Define Requirements</h3>
+            <h3 className="font-semibold text-slate-900">RFQ Summary & Message</h3>
           </div>
 
-          <div className="space-y-4 pl-11">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target MOQ</label>
-                <input type="text" defaultValue={targetMoq} className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-slate-50" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target Price</label>
-                <input type="text" defaultValue={targetPrice} className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-slate-50" />
-              </div>
+          <div className="pl-11 space-y-6">
+            {/* Summary Pills */}
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200">
+                {playbook?.mode === 'white_label' ? 'White Label' : 'Custom OEM'}
+              </span>
+              <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200">
+                Target: {targetPrice}
+              </span>
+              <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200">
+                MOQ: {targetMoq}
+              </span>
             </div>
 
-            {isWhiteLabel ? (
-              <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-bold text-sky-800 uppercase">Branding Requirements</p>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={includeLogo} onChange={(e) => setIncludeLogo(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
-                  <span className="text-sm text-slate-700">Logo printing on product (Silkscreen/Laser)</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={includePackaging} onChange={(e) => setIncludePackaging(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
-                  <span className="text-sm text-slate-700">Custom Color Box (4C Printing)</span>
-                </label>
+            {/* Message Editor */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                Message to Suppliers
+              </label>
+              <div className="relative">
+                <textarea
+                  value={messageBody}
+                  onChange={(e) => setMessageBody(e.target.value)}
+                  className="w-full h-48 p-4 text-sm text-slate-700 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono leading-relaxed"
+                />
+                <div className="absolute bottom-3 right-3 text-[10px] text-slate-400">
+                  You can edit this before sending
+                </div>
               </div>
-            ) : (
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-3">
-                <p className="text-xs font-bold text-amber-800 uppercase">Engineering Assets</p>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" defaultChecked disabled className="w-4 h-4 text-amber-600 rounded opacity-50" />
-                  <span className="text-sm text-slate-700">Attach BOM ({bomCount} parts)</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-amber-600 rounded" />
-                  <span className="text-sm text-slate-700">Attach 3D CAD Files (STEP/IGES)</span>
-                </label>
-              </div>
-            )}
+            </div>
           </div>
         </section>
 
@@ -266,11 +394,11 @@ export default function RFQBuilder({
         <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">2</div>
-            <h3 className="font-semibold text-slate-900">Supplier Vetting Questions</h3>
+            <h3 className="font-semibold text-slate-900">Additional Questions</h3>
           </div>
 
           <div className="pl-11 space-y-3">
-            <p className="text-sm text-slate-500">Customize the technical questions you want every supplier to answer.</p>
+            <p className="text-sm text-slate-500">Add specific technical questions you need answered.</p>
 
             <ul className="space-y-2">
               {questions.map((q, idx) => (
@@ -302,45 +430,7 @@ export default function RFQBuilder({
           </div>
         </section>
 
-        {/* 3. OUTREACH KIT */}
-        <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 shadow-sm text-white">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">3</div>
-            <h3 className="font-semibold">Outreach Kit</h3>
-          </div>
-
-          <div className="pl-11 grid md:grid-cols-2 gap-6">
-            {/* NDA */}
-            <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Legal Protection</p>
-              <div className="bg-white/10 rounded-lg p-3 border border-white/10">
-                <p className="text-sm font-medium mb-1">Mutual NDA Template</p>
-                <p className="text-xs text-slate-400 mb-3">Standard agreement to protect your IP before sharing files.</p>
-                <button className="w-full py-1.5 rounded bg-white text-slate-900 text-xs font-bold hover:bg-slate-200 transition-colors">
-                  Download PDF
-                </button>
-              </div>
-            </div>
-
-            {/* Email Template */}
-            <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">First Contact Script</p>
-              <div className="bg-white/10 rounded-lg p-3 border border-white/10 relative group">
-                <p className="text-xs text-slate-300 italic leading-relaxed line-clamp-3">
-                  "Hi, I am the Purchasing Manager for [Project]. We are looking for a factory to produce {projectTitle}..."
-                </p>
-                <button
-                  onClick={() => navigator.clipboard.writeText(`Hi,\n\nI am the Purchasing Manager for a new project based in Australia.\nWe are looking for a factory to produce a ${projectTitle}.\n\nPlease see the attached RFQ for details.\n\nCould you please:\n1. Confirm if you can manufacture this?\n2. Provide a rough EXW quote based on the attached specs?\n\nThanks,\n[Your Name]`)}
-                  className="mt-2 w-full py-1.5 rounded bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors"
-                >
-                  Copy to Clipboard
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* GENERATE BUTTON */}
+        {/* 3. GENERATE BUTTON */}
         <div className="flex justify-end pt-4">
           <button
             onClick={handleGenerateRFQ}
@@ -350,12 +440,12 @@ export default function RFQBuilder({
             {isSubmitting ? (
               <>
                 <span className="animate-spin">↻</span>
-                <span>Generating...</span>
+                <span>Sending RFQs...</span>
               </>
             ) : (
               <>
-                <span>Generate RFQ Package</span>
-                <span className="text-indigo-200 text-sm font-normal">(PDF)</span>
+                <span>Send RFQ Package</span>
+                <span className="text-indigo-200 text-sm font-normal">({matchedPartners.length > 0 ? `${matchedPartners.length} matches` : 'Auto-match'})</span>
               </>
             )}
           </button>
@@ -390,10 +480,14 @@ export default function RFQBuilder({
                 {isWhiteLabel && includePackaging && <p>- Requirement: Custom Color Box</p>}
               </div>
               <div>
-                <p className="font-bold text-slate-800">REQUIRED QUOTATION DETAILS:</p>
+                <p className="font-bold text-slate-800">MESSAGE:</p>
+                <p className="whitespace-pre-wrap border-l-2 border-slate-300 pl-2 italic">
+                  {messageBody}
+                </p>
+              </div>
+              <div>
+                <p className="font-bold text-slate-800">ADDITIONAL QUESTIONS:</p>
                 <ol className="list-decimal pl-4 space-y-1">
-                  <li>EXW Unit Price (Tiered by Qty)</li>
-                  <li>Sample Lead Time & Cost</li>
                   {questions.map((q, i) => <li key={i}>{q}</li>)}
                 </ol>
               </div>
