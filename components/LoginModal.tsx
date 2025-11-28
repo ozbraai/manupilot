@@ -38,6 +38,7 @@ export function LoginModal({
         });
 
       if (authError) {
+        console.error('Supabase auth error:', authError);
         setError(authError.message || 'Failed to log in.');
         return;
       }

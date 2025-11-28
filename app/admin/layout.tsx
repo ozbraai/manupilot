@@ -41,6 +41,8 @@ export default function AdminLayout({
         { name: 'Projects', href: '/admin/projects', icon: Briefcase },
         { name: 'RFQs', href: '/admin/rfqs', icon: FileText },
         { name: 'Content', href: '/admin/content', icon: FileBox },
+        { name: 'Blog', href: '/admin/content/blogs', icon: FileText },
+        { name: 'Blog Comments', href: '/admin/content/blogs/comments', icon: Users },
         { name: 'AI Rules', href: '/admin/ai-rules', icon: Bot },
         { name: 'Logs', href: '/admin/logs', icon: Activity },
         { name: 'Settings', href: '/admin/settings', icon: Settings },

@@ -1,19 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/components/AuthProvider';
+import { useWizard } from '@/components/wizard/WizardContext';
 import { LoginModal } from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
 import NotificationBell from '@/components/messaging/NotificationBell';
 
+
 export default function Navbar() {
   const router = useRouter();
-
-  // Auth state
+  const pathname = usePathname();
+  // Auth state from provider
+  const { user, signOut } = useAuth();
+  const { openWizard } = useWizard();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Sync local state with provider
+  useEffect(() => {
+    setUserEmail(user?.email ?? null);
+    setIsAdmin(user?.app_metadata?.role === 'admin');
+  }, [user]);
 
   // Menus
   const [openMenu, setOpenMenu] = useState<string | null>(null); // desktop dropdowns
@@ -28,21 +39,28 @@ export default function Navbar() {
 
   // === [1] LOAD USER & PREMIUM FLAG ===
   useEffect(() => {
-    async function loadUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUserEmail(user?.email ?? null);
-      setIsAdmin(user?.app_metadata?.role === 'admin');
-    }
-
-    loadUser();
-
+    // The auth state is now managed by useAuth, so we only need the premium flag here.
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem('manupilot_include_premium');
       if (stored === 'true') setIncludePremium(true);
     }
   }, []);
+
+  // === [1.5] CLICK OUTSIDE HANDLER ===
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!openMenu) return;
+
+      const target = event.target as HTMLElement;
+      // If click is inside a dropdown container (trigger or menu), ignore
+      if (target.closest('[data-dropdown-container]')) return;
+
+      setOpenMenu(null);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openMenu]);
 
   // === [2] HANDLERS ===
   function toggleDropdown(menu: string) {
@@ -61,8 +79,7 @@ export default function Navbar() {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
-    setUserEmail(null);
+    await signOut();
     closeAllMenus();
     router.push('/');
   }
@@ -93,36 +110,7 @@ export default function Navbar() {
 
             {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-zinc-600">
-              <Link
-                href="/dashboard"
-                className="px-3 py-2 rounded-lg hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-                onClick={closeAllMenus}
-              >
-                Projects
-              </Link>
 
-              <Link
-                href="/rfqs"
-                className="px-3 py-2 rounded-lg hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-                onClick={closeAllMenus}
-              >
-                RFQs
-              </Link>
-              <Link
-                href="/messages"
-                className="px-3 py-2 rounded-lg hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-                onClick={closeAllMenus}
-              >
-                Messages
-              </Link>
-
-              <Link
-                href="/about"
-                className="px-3 py-2 rounded-lg hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-                onClick={closeAllMenus}
-              >
-                About
-              </Link>
 
               <Link
                 href="/how-it-works"
@@ -132,8 +120,16 @@ export default function Navbar() {
                 How it works
               </Link>
 
+              <Link
+                href="/blog"
+                className="px-3 py-2 rounded-lg hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+                onClick={closeAllMenus}
+              >
+                Blog
+              </Link>
+
               {/* Marketplace dropdown */}
-              <div className="relative group">
+              <div className="relative group" data-dropdown-container>
                 <button
                   type="button"
                   onClick={() => toggleDropdown('marketplace')}
@@ -178,7 +174,7 @@ export default function Navbar() {
               </div>
 
               {/* Learning dropdown */}
-              <div className="relative">
+              <div className="relative" data-dropdown-container>
                 <button
                   type="button"
                   onClick={() => toggleDropdown('learning')}
@@ -221,12 +217,34 @@ export default function Navbar() {
                   </div>
                 )}
               </div>
+
+              <Link
+                href="/about"
+                className="px-3 py-2 rounded-lg hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+                onClick={closeAllMenus}
+              >
+                About
+              </Link>
+
             </nav>
           </div>
 
           {/* RIGHT: DESKTOP AUTH / ACCOUNT */}
           <div className="hidden md:flex items-center gap-3">
             {userEmail && <NotificationBell />}
+
+            {/* Validate Idea Button - Always visible or only when logged in?
+                Assuming always visible as a CTA, but it opens wizard which requires auth/NDA.
+                If user is not logged in, wizard handles it (or redirects).
+                Let's show it always for now as a primary CTA.
+            */}
+            <button
+              onClick={openWizard}
+              className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm"
+            >
+              + Validate Idea
+            </button>
+
             {!userEmail ? (
               <>
                 <button
@@ -251,7 +269,7 @@ export default function Navbar() {
                 </button>
               </>
             ) : (
-              <div className="relative">
+              <div className="relative" data-dropdown-container>
                 <button
                   type="button"
                   onClick={() => toggleDropdown('account')}
@@ -267,6 +285,31 @@ export default function Navbar() {
                       <p className="text-sm font-semibold text-zinc-900 truncate">{userEmail}</p>
                     </div>
 
+                    {/* Moved Nav Items */}
+                    <Link
+                      href="/dashboard"
+                      className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 rounded-lg transition-colors"
+                      onClick={closeAllMenus}
+                    >
+                      Projects
+                    </Link>
+                    <Link
+                      href="/rfqs"
+                      className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 rounded-lg transition-colors"
+                      onClick={closeAllMenus}
+                    >
+                      RFQs
+                    </Link>
+                    <Link
+                      href="/messages"
+                      className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 rounded-lg transition-colors"
+                      onClick={closeAllMenus}
+                    >
+                      Messages
+                    </Link>
+
+                    <div className="my-2 border-t border-zinc-100"></div>
+
                     {/* Admin Link */}
                     {isAdmin && (
                       <Link
@@ -278,13 +321,6 @@ export default function Navbar() {
                       </Link>
                     )}
 
-                    <Link
-                      href="/dashboard"
-                      className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 rounded-lg transition-colors"
-                      onClick={closeAllMenus}
-                    >
-                      Dashboard
-                    </Link>
                     <Link
                       href="/account/profile"
                       className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 rounded-lg transition-colors"
@@ -374,15 +410,19 @@ export default function Navbar() {
               >
                 RFQs
               </Link>
-              <Link href="/about" onClick={closeAllMenus} className="py-2 px-4 hover:bg-zinc-50 rounded-lg">
-                About
-              </Link>
               <Link
                 href="/how-it-works"
                 onClick={closeAllMenus}
                 className="py-2 px-4 hover:bg-zinc-50 rounded-lg"
               >
                 How it works
+              </Link>
+              <Link
+                href="/blog"
+                onClick={closeAllMenus}
+                className="py-2 px-4 hover:bg-zinc-50 rounded-lg"
+              >
+                Blog
               </Link>
 
               {/* Mobile marketplace */}

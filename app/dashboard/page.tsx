@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useAuth } from '@/components/AuthProvider';
+import { useWizard } from '@/components/wizard/WizardContext';
 import { useRouter } from 'next/navigation';
 import {
   MagnifyingGlassIcon,
@@ -12,6 +14,7 @@ import {
   Squares2X2Icon,
   FunnelIcon,
   ArrowRightIcon,
+  ListBulletIcon,
 } from '@heroicons/react/24/outline';
 
 // === [1] TYPES ===
@@ -38,6 +41,7 @@ type CompletionState = {
 
 type StatusKey = 'all' | 'not-started' | 'in-progress' | 'completed';
 type SortOption = 'newest' | 'oldest';
+type ViewMode = 'grid' | 'list';
 
 // === [2] STATUS HELPERS (BASED ON PROGRESS) ===
 function getStatusLabelFromProgress(progress: number): string {
@@ -59,8 +63,11 @@ function getStatusKeyFromProgress(progress: number): StatusKey {
 }
 
 // === [3] PAGE COMPONENT ===
-export default function DashboardPage() {
+export default function Dashboard() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const supabase = createClientComponentClient();
+  const { openWizard } = useWizard();
 
   // Projects & draft
   const [projects, setProjects] = useState<Project[]>([]);
@@ -75,6 +82,8 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
   const [sortOrder, setSortOrder] = useState<SortOption>('newest');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
 
   // Derived per-project data
   const [projectCategories, setProjectCategories] = useState<
@@ -92,10 +101,9 @@ export default function DashboardPage() {
         setError(null);
 
         // Check authentication first
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authLoading) return;
 
-        if (authError || !user) {
-          console.error('Authentication error:', authError);
+        if (!user) {
           setError('Please log in to view your projects.');
           setProjects([]);
           setLoadingProjects(false);
@@ -109,7 +117,7 @@ export default function DashboardPage() {
           .order('created_at', { ascending: false });
 
         if (dbError) {
-          console.error('Failed to load projects:', dbError);
+          console.error('Failed to load projects:', JSON.stringify(dbError, null, 2));
           setError('Could not load projects.');
           setProjects([]);
           return;
@@ -126,7 +134,7 @@ export default function DashboardPage() {
     }
 
     loadProjects();
-  }, []);
+  }, [user, authLoading]);
 
   // === [5] LOAD DRAFT PLAYBOOK FROM LOCALSTORAGE ===
   useEffect(() => {
@@ -266,7 +274,58 @@ export default function DashboardPage() {
         }
 
         setProjects((prev) => prev.filter((p) => p.id !== projectId));
+        setSelectedProjects((prev) => {
+          const next = new Set(prev);
+          next.delete(projectId);
+          return next;
+        });
       });
+  }
+
+  function handleBulkDelete() {
+    if (selectedProjects.size === 0) return;
+
+    const yes = window.confirm(
+      `Are you sure you want to delete ${selectedProjects.size} projects? This action cannot be undone.`
+    );
+    if (!yes) return;
+
+    const idsToDelete = Array.from(selectedProjects);
+
+    supabase
+      .from('projects')
+      .delete()
+      .in('id', idsToDelete)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Failed to delete projects:', error);
+          alert('Failed to delete projects.');
+          return;
+        }
+
+        setProjects((prev) => prev.filter((p) => !selectedProjects.has(p.id)));
+        setSelectedProjects(new Set());
+      });
+  }
+
+  function toggleSelection(projectId: string) {
+    setSelectedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedProjects.size === filteredProjects.length) {
+      setSelectedProjects(new Set());
+    } else {
+      setSelectedProjects(new Set(filteredProjects.map((p) => p.id)));
+    }
   }
 
   function formatDate(value: string) {
@@ -295,13 +354,26 @@ export default function DashboardPage() {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => router.push('/playbook-wizard')}
+                onClick={openWizard}
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:-translate-y-0.5 transition-all duration-200"
               >
                 <PlusIcon className="h-5 w-5" />
                 New Project
               </button>
             </div>
+          </div>
+
+          {/* QUICK ACTIONS ROW */}
+          <div className="mt-8 flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+            <button onClick={() => router.push('/rfqs')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all whitespace-nowrap">
+              <span>📄</span> New RFQ
+            </button>
+            <button onClick={() => router.push('/marketplace')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all whitespace-nowrap">
+              <span>🏭</span> Browse Suppliers
+            </button>
+            <button onClick={() => router.push('/learning')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all whitespace-nowrap">
+              <span>📚</span> Manufacturing Guide
+            </button>
           </div>
         </div>
       </div>
@@ -420,7 +492,44 @@ export default function DashboardPage() {
                 })}
               </div>
             </div>
+
+            {/* View Toggle & Bulk Actions */}
+            <div className="flex items-center gap-3">
+              {selectedProjects.size > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors animate-in fade-in slide-in-from-right-4"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                  Delete ({selectedProjects.size})
+                </button>
+              )}
+
+              <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid'
+                    ? 'bg-slate-100 text-slate-900 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                    }`}
+                  title="Grid View"
+                >
+                  <Squares2X2Icon className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'list'
+                    ? 'bg-slate-100 text-slate-900 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                    }`}
+                  title="List View"
+                >
+                  <ListBulletIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
           </div>
+
 
           {/* GRID */}
           {loadingProjects ? (
@@ -434,87 +543,200 @@ export default function DashboardPage() {
               {error}
             </div>
           ) : filteredProjects.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-slate-200 p-12 text-center bg-slate-50/50">
-              <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4 text-slate-400">
-                <FunnelIcon className="h-6 w-6" />
+            <div className="rounded-3xl border-2 border-dashed border-slate-200 p-12 text-center bg-slate-50/50 relative overflow-hidden group">
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#64748b_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+
+              <div className="relative z-10">
+                <div className="mx-auto w-16 h-16 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center mb-6 text-slate-400 group-hover:scale-110 group-hover:text-blue-500 group-hover:border-blue-100 transition-all duration-300">
+                  <FunnelIcon className="h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">No projects found</h3>
+                <p className="text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  {search || statusFilter !== 'all'
+                    ? "Try adjusting your search or filters to find what you're looking for."
+                    : "Ready to build something? Start your first manufacturing project in minutes."}
+                </p>
+                {(search || statusFilter !== 'all') ? (
+                  <button
+                    onClick={() => { setSearch(''); setStatusFilter('all'); }}
+                    className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    Clear filters
+                  </button>
+                ) : (
+                  <button
+                    onClick={openWizard}
+                    className="mt-8 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:-translate-y-0.5 transition-all duration-200"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                    Create First Project
+                  </button>
+                )}
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">No projects found</h3>
-              <p className="text-slate-500 mt-1 max-w-sm mx-auto">
-                {search || statusFilter !== 'all'
-                  ? "Try adjusting your search or filters to find what you're looking for."
-                  : "Get started by creating your first manufacturing project."}
-              </p>
-              {(search || statusFilter !== 'all') && (
-                <button
-                  onClick={() => { setSearch(''); setStatusFilter('all'); }}
-                  className="mt-4 text-sm font-medium text-blue-600 hover:text-blue-700"
-                >
-                  Clear filters
-                </button>
-              )}
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredProjects.map((project) => {
-                const progress = projectProgress[project.id] ?? 0;
-                const statusLabel = getStatusLabelFromProgress(progress);
-                const colors = getStatusColor(progress);
-                const createdLabel = formatDate(project.created_at);
-                const category = projectCategories[project.id] || 'Other';
+            <>
+              {/* LIST VIEW */}
+              {!loadingProjects && !error && filteredProjects.length > 0 && viewMode === 'list' && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-4 font-medium text-slate-500 w-12">
+                          <input
+                            type="checkbox"
+                            aria-label="Select all projects"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            checked={filteredProjects.length > 0 && selectedProjects.size === filteredProjects.length}
+                            onChange={toggleSelectAll}
+                          />
+                        </th>
+                        <th className="px-6 py-4 font-medium text-slate-500">Project</th>
+                        <th className="px-6 py-4 font-medium text-slate-500">Status</th>
+                        <th className="px-6 py-4 font-medium text-slate-500">Category</th>
+                        <th className="px-6 py-4 font-medium text-slate-500">Progress</th>
+                        <th className="px-6 py-4 font-medium text-slate-500">Created</th>
+                        <th className="px-6 py-4 font-medium text-slate-500 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredProjects.map((project) => {
+                        const progress = projectProgress[project.id] ?? 0;
+                        const statusLabel = getStatusLabelFromProgress(progress);
+                        const colors = getStatusColor(progress);
+                        const createdLabel = formatDate(project.created_at);
+                        const category = projectCategories[project.id] || 'Other';
+                        const isSelected = selectedProjects.has(project.id);
 
-                return (
-                  <div
-                    key={project.id}
-                    onClick={() => router.push(`/projects/${project.id}`)}
-                    className="group relative bg-white rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:border-blue-100/50 transition-all duration-300 cursor-pointer flex flex-col h-full"
-                  >
-                    {/* Header */}
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                        <span className={`h-1.5 w-1.5 rounded-full ${colors}`} />
-                        {statusLabel}
-                      </span>
-                      <button
-                        onClick={(e) => handleDelete(e, project.id)}
-                        className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors -mr-2 -mt-2 opacity-0 group-hover:opacity-100"
-                        title="Delete Project"
+                        return (
+                          <tr
+                            key={project.id}
+                            onClick={() => router.push(`/projects/${project.id}`)}
+                            className={`group hover:bg-slate-50 transition-colors cursor-pointer ${isSelected ? 'bg-blue-50/30' : ''}`}
+                          >
+                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                aria-label={`Select project ${project.title}`}
+                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                checked={isSelected}
+                                onChange={() => toggleSelection(project.id)}
+                              />
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                {project.title}
+                              </div>
+                              <div className="text-xs text-slate-500 line-clamp-1 max-w-xs">
+                                {project.description || 'No description'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                                <span className={`h-1.5 w-1.5 rounded-full ${colors}`} />
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-600">
+                              {category}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${colors}`}
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-medium text-slate-500">{progress}%</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-slate-500">
+                              {createdLabel}
+                            </td>
+                            <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={(e) => handleDelete(e, project.id)}
+                                className="text-slate-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                title="Delete Project"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* GRID VIEW */}
+              {!loadingProjects && !error && filteredProjects.length > 0 && viewMode === 'grid' && (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredProjects.map((project) => {
+                    const progress = projectProgress[project.id] ?? 0;
+                    const statusLabel = getStatusLabelFromProgress(progress);
+                    const colors = getStatusColor(progress);
+                    const createdLabel = formatDate(project.created_at);
+                    const category = projectCategories[project.id] || 'Other';
+
+                    return (
+                      <div
+                        key={project.id}
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                        className="group relative bg-white rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 hover:border-blue-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full"
                       >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                        {/* Header */}
+                        <div className="flex justify-between items-start mb-4">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                            <span className={`h-1.5 w-1.5 rounded-full ${colors}`} />
+                            {statusLabel}
+                          </span>
+                          <button
+                            onClick={(e) => handleDelete(e, project.id)}
+                            className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors -mr-2 -mt-2 opacity-0 group-hover:opacity-100"
+                            title="Delete Project"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
 
-                    {/* Content */}
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
-                        {project.title}
-                      </h3>
-                      <p className="text-sm text-slate-500 line-clamp-2 mb-4">
-                        {project.description || 'No description provided.'}
-                      </p>
-                    </div>
+                        {/* Content */}
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+                            {project.title}
+                          </h3>
+                          <p className="text-sm text-slate-500 line-clamp-2 mb-4">
+                            {project.description || 'No description provided.'}
+                          </p>
+                        </div>
 
-                    {/* Footer */}
-                    <div className="pt-4 border-t border-slate-50 mt-auto">
-                      <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
-                        <span>{category}</span>
-                        <span>{createdLabel}</span>
+                        {/* Footer */}
+                        <div className="pt-4 border-t border-slate-50 mt-auto">
+                          <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
+                            <span>{category}</span>
+                            <span>{createdLabel}</span>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="relative h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${colors}`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
-
-                      {/* Progress Bar */}
-                      <div className="relative h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${colors}`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </section>
-      </div>
-    </main>
+      </div >
+    </main >
   );
 }

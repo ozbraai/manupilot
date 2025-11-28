@@ -1,3 +1,5 @@
+// app/api/wizard/questions/route.ts
+
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
@@ -13,103 +15,199 @@ export async function POST(req: Request) {
       coreProduct,
       sourcingMode,
       components,
-      selectedSubProducts,
-      constraints
-    } = body;
+      selectedSubProducts
+    } = body as {
+      idea?: string;
+      productName?: string;
+      category?: string;
+      coreProduct?: string;
+      sourcingMode?: string;
+      components?: any;
+      selectedSubProducts?: any;
+    };
 
-    console.log('Generating questions for:', { productName, category, sourcingMode });
+    const systemPrompt = buildSystemPrompt({
+      idea: idea ?? '',
+      productName: productName ?? '',
+      category: category ?? '',
+      coreProduct: coreProduct ?? '',
+      sourcingMode: sourcingMode ?? 'auto',
+      components,
+      selectedSubProducts
+    });
 
-    // 1. Define Prompts based on Mode
-    let systemPrompt = '';
-
-    if (sourcingMode === 'white-label') {
-      systemPrompt = `
-You are ManuBot, an AI manufacturing and sourcing assistant helping a customer who wants to create a WHITE LABEL product. They are basing this on an existing factory product or reference.
-
-Using the following information:
-- Idea: ${idea}
-- Product name: ${productName}
-- Category: ${category}
-- Core product: ${coreProduct}
-- Sub-products: ${JSON.stringify(selectedSubProducts)}
-- Components and supplier types: ${JSON.stringify(components)}
-- Business constraints: ${JSON.stringify(constraints)}
-
-Generate 5–7 questions that clarify:
-1) What should stay the same as the reference product.
-2) What they want to change (colors, small features, materials, packaging, branding).
-3) How premium they want the quality compared to typical white-label versions.
-4) Packaging and branding expectations.
-5) Compliance and labeling expectations for the target markets.
-
-For each question, return a JSON object:
-{
-  "key": "string_snake_case",
-  "label": "short label",
-  "title": "full question",
-  "helper": "1–3 sentence explanation of why this matters in a WHITE LABEL context",
-  "placeholder": "realistic example answer tailored for this product category"
-}
-
-Tailor helper and placeholder to the product CATEGORY. Use specific examples for BBQ, knives, camping gear, electronics, etc. Avoid generic text.
-`;
-    } else {
-      // Default to Custom / OEM logic
-      systemPrompt = `
-You are ManuBot, an AI manufacturing and design assistant helping a customer build a CUSTOM product (OEM).
-
-Using:
-- Idea: ${idea}
-- Product name: ${productName}
-- Category: ${category}
-- Core product: ${coreProduct}
-- Sub-products: ${JSON.stringify(selectedSubProducts)}
-- Components & supplier types: ${JSON.stringify(components)}
-- Business constraints: ${JSON.stringify(constraints)}
-
-Generate 6–10 deep questions that clarify:
-1) Functional requirements & performance targets (load rating, IP rating, temp range, battery life, etc.).
-2) Materials & durability (steel grade, fabric denier, handle materials, coatings, etc.).
-3) User experience & quality tier (premium vs mid vs budget).
-4) Usage environment (outdoor/indoor, food-contact, children, industrial).
-5) Regulatory & safety expectations (standards that may apply).
-6) Branding & packaging expectations.
-
-For each question, return a JSON object:
-{
-  "key": "string_snake_case",
-  "label": "short label",
-  "title": "full question",
-  "helper": "2–4 sentences explaining what a good answer should contain for this type of product",
-  "placeholder": "specific example answer tailored to this product category"
-}
-
-Questions must sound like a senior product manager plus a manufacturing engineer wrote them. Use the CATEGORY to tailor helper & placeholder examples (BBQ vs knife vs camping chair vs electronics, etc.). Avoid generic 'tell us about materials' phrasing.
-`;
-    }
-
-    // 2. Call OpenAI
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are a helpful manufacturing assistant. Output valid JSON with a "questions" array.' },
-        { role: 'user', content: systemPrompt },
-      ],
+      temperature: 0.4,
       response_format: { type: 'json_object' },
-      temperature: 0.5,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are ManuBot, a senior manufacturing and NPI assistant. Always return VALID JSON with a "questions" array.'
+        },
+        {
+          role: 'user',
+          content: systemPrompt
+        }
+      ]
     });
 
     const content = completion.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
+    let parsed: any;
+
+    try {
+      parsed = JSON.parse(content);
+    } catch (e) {
+      console.error('Questions API – JSON parse error:', e, content);
+      return NextResponse.json({ questions: [] });
+    }
 
     // Ensure we return { questions: [] } structure
     const questions = parsed.questions || parsed.items || [];
 
     return NextResponse.json({ questions });
-
   } catch (e: any) {
     console.error('Questions API Error:', e);
-    // Return empty array instead of crashing
+    // Return empty array instead of crashing the wizard
     return NextResponse.json({ questions: [] });
   }
+}
+
+/**
+ * Build a feasibility-aware prompt for generating wizard follow-up questions.
+ * This does NOT change the response shape – still { questions: Question[] }.
+ */
+function buildSystemPrompt(input: {
+  idea: string;
+  productName: string;
+  category: string;
+  coreProduct: string;
+  sourcingMode: string;
+  components?: any;
+  selectedSubProducts?: any;
+}): string {
+  const {
+    idea,
+    productName,
+    category,
+    coreProduct,
+    sourcingMode,
+    components,
+    selectedSubProducts
+  } = input;
+
+  const componentsJson = components
+    ? JSON.stringify(components, null, 2)
+    : 'null';
+
+  const subsJson = selectedSubProducts
+    ? JSON.stringify(selectedSubProducts, null, 2)
+    : '[]';
+
+  return `
+You are ManuBot, a senior New Product Introduction (NPI) program manager.
+
+Your job is to generate EXACTLY 5 laser-focused follow-up questions that will help us:
+- Understand how hard this product will be to manufacture
+- Understand the real cost and MOQ realities
+- Understand compliance / safety / risk
+- Understand how this product is different from standard or white-label options
+- Understand any logistics issues such as weight or fragility
+
+The user has already told us:
+
+- Idea / high-level concept:
+  "${idea}"
+
+- Product name:
+  "${productName}"
+
+- Category:
+  "${category}"
+
+- Core product description (plain text):
+  "${coreProduct}"
+
+- Sourcing mode:
+  "${sourcingMode}"   // "white_label", "custom", or similar
+
+- Components (serialised JSON from the wizard):
+${componentsJson}
+
+- Selected sub-products (serialised JSON):
+${subsJson}
+
+=====================================================
+WHAT YOU MUST DO
+=====================================================
+
+Generate 5 follow-up questions that together cover:
+
+1) MANUFACTURABILITY & TOOLING  (at least 2 questions)
+   Examples of what to ask:
+   - What materials and manufacturing processes do they expect (sheet metal, casting, injection moulding, textiles, electronics, etc.)?
+   - Will this design require new moulds or tooling, or can factories use an existing BBQ / product as the base?
+
+2) COST & MOQ REALITY  (at least 1 question)
+   - Ask about the kind of MOQ they are realistically comfortable with for the first order,
+     and whether they expect a low, medium or high ex-factory cost relative to the market.
+
+3) COMPLIANCE & RISK  (at least 1 question)
+   - Ask about food contact, electrical components, gas, sharp edges, children, outdoor use or any regulated aspects.
+   - The goal is to understand whether compliance is Basic, Moderate or Strict.
+
+4) DIFFERENTIATION / UNIQUENESS  (at least 1 question)
+   - Ask explicitly how their product will differ from what is already available.
+   - Distinguish between:
+       • logo / colour only
+       • minor design tweaks (handles, vents, shelves, accessories)
+       • new features or components added to an existing base
+       • totally new design or new way of using the product.
+   - This is critical for understanding competition intensity and uniqueness.
+
+5) LOGISTICS / FRAGILITY  (optional but preferred)
+   - Where relevant, ask about expected size, weight, and fragility
+     (for example, very heavy, delicate glass components, sensitive electronics, etc.).
+
+You can reference the idea, core product, components and sourcing mode to make the questions specific
+(e.g. "For this charcoal BBQ…" or "For this knife set…") instead of generic.
+
+=====================================================
+OUTPUT FORMAT (CRITICAL)
+=====================================================
+
+Return ONLY a single JSON object with one key: "questions".
+
+"questions" MUST be an array of EXACTLY 5 question objects.
+Each question object MUST have:
+
+- "key": a short, machine-readable id (e.g. "tooling_requirements")
+- "label": a short UI label (e.g. "Tooling & moulds")
+- "title": the full human-readable question to show above the input
+- "helper": a short helper line explaining what to include in the answer
+- "placeholder": an example answer
+- "suggestedAnswer": (optional) a realistic sample answer
+
+Example STRUCTURE (do not reuse this content literally):
+
+{
+  "questions": [
+    {
+      "key": "tooling_requirements",
+      "label": "Tooling & moulds",
+      "title": "Will this design need new moulds or tooling, or can factories use an existing BBQ or product as the base?",
+      "helper": "Explain whether you expect a brand new shape or mechanism, or if this is mostly a cosmetic change to an existing product.",
+      "placeholder": "We want to use a standard 57 cm kettle BBQ body and lid, but add our own handle design and vent cap. No new major tooling beyond a logo plate.",
+      "suggestedAnswer": "We plan to start with an existing compact charcoal BBQ frame and add our own fold-out side tables and thermometer in the lid."
+    }
+  ]
+}
+
+IMPORTANT RULES:
+- Do NOT ask about things already fully clear from the input, unless a clarification is needed.
+- Questions must be practical and specific, not generic.
+- Keep everything in clear, simple English.
+- Do NOT output any text outside the JSON object.
+`.trim();
 }

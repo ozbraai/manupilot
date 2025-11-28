@@ -13,21 +13,47 @@ import {
   Activity,
   Ship,
   Truck,
-  Folder
+  Folder,
+  LucideIcon
 } from 'lucide-react';
 
-type View = 'overview' | 'bom' | 'financials' | 'roadmap' | 'sourcing' | 'samples';
+export type View = 'overview' | 'bom' | 'financials' | 'roadmap' | 'sourcing' | 'samples';
+
+export interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  group: string;
+  disabled?: boolean;
+  badge?: string;
+  badgeColor?: string;
+}
+
+export interface Phase {
+  id: string;
+  title: string;
+}
 
 type ProjectSidebarProps = {
-  activeView: View;
+  activeView: string;
   onChangeView: (view: View) => void;
   title: string;
   rfqStatus?: 'draft' | 'submitted' | 'in_review' | 'completed';
+  navItems?: NavItem[];
+  phases?: Phase[];
 };
 
-export default function ProjectSidebar({ activeView, onChangeView, title, rfqStatus }: ProjectSidebarProps) {
+const defaultPhases: Phase[] = [
+  { id: 'phase-1', title: 'PHASE 1 — PRODUCT DEFINITION' },
+  { id: 'phase-2', title: 'PHASE 2 — SOURCING & VALIDATION' },
+  { id: 'phase-3', title: 'PHASE 3 — PRODUCTION' },
+  { id: 'phase-4', title: 'PHASE 4 — LOGISTICS & IMPORTING' },
+  { id: 'assets', title: 'ASSETS' },
+];
 
-  const navItems = [
+export default function ProjectSidebar({ activeView, onChangeView, title, rfqStatus, navItems: customNavItems, phases: customPhases }: ProjectSidebarProps) {
+
+  const defaultNavItems: NavItem[] = [
     // PHASE 1: PRODUCT DEFINITION
     { id: 'overview', label: 'Product Overview', icon: Home, group: 'phase-1' },
     { id: 'bom', label: 'Product Details', icon: ListChecks, group: 'phase-1' },
@@ -57,19 +83,14 @@ export default function ProjectSidebar({ activeView, onChangeView, title, rfqSta
     { id: 'files', label: 'Project Files', icon: Folder, group: 'assets', disabled: true, badge: 'SOON' },
   ];
 
-  const phases = [
-    { id: 'phase-1', title: 'PHASE 1 — PRODUCT DEFINITION' },
-    { id: 'phase-2', title: 'PHASE 2 — SOURCING & VALIDATION' },
-    { id: 'phase-3', title: 'PHASE 3 — PRODUCTION' },
-    { id: 'phase-4', title: 'PHASE 4 — LOGISTICS & IMPORTING' },
-    { id: 'assets', title: 'ASSETS' },
-  ];
+  const navItems = customNavItems || defaultNavItems;
+  const phases = customPhases || defaultPhases;
 
   return (
     <aside className="w-64 bg-[#F8F9FA] flex flex-col h-full border-r border-black/5 lg:max-h-full lg:overflow-y-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Project Title Header */}
       <div className="h-16 flex items-center px-4 border-b border-black/5 bg-[#F8F9FA]">
-        <div className="flex flex-col overflow-hidden">
+        <div className="flex flex-col overflow-hidden w-full">
           <span className="text-[10px] font-semibold uppercase tracking-[0.6px] text-[#999999]">Project Workspace</span>
           <span className="font-semibold text-[#222222] truncate text-sm mt-0.5" title={title}>
             {title || 'Untitled Project'}
@@ -88,7 +109,7 @@ export default function ProjectSidebar({ activeView, onChangeView, title, rfqSta
               {phase.title}
             </p>
             <div className="space-y-0.5">
-              {navItems.filter(i => i.group === phase.id).map((item: any) => {
+              {navItems.filter(i => i.group === phase.id).map((item) => {
                 const Icon = item.icon;
                 const isActive = activeView === item.id;
                 const isDisabled = item.disabled;

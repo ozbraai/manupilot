@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 // Layout
 import ProjectSidebar from '@/components/project/ProjectSidebar';
+import ProjectShell from '@/components/project/ProjectShell';
 
 // Components
 import ProjectHeader from '@/components/project/ProjectHeader';
@@ -30,6 +31,21 @@ import DownloadPDFButton from '@/components/pdf/DownloadPDFButton';
 
 // Types
 import { PlaybookV2 } from '@/types/playbook';
+import { FeasibilityScores } from '@/lib/feasibility';
+
+// Feasibility
+import FeasibilityCard from '@/components/FeasibilityCard';
+
+// NEW: AI Analysis Components (Phase 4)
+import OpportunityScore from '@/components/project/OpportunityScore';
+import MissingInfoScanner from '@/components/project/MissingInfoScanner';
+import ComponentBreakdown from '@/components/project/ComponentBreakdown';
+import BOMDraft from '@/components/project/BOMDraft';
+import CertificationMap from '@/components/project/CertificationMap';
+import IPStrategy from '@/components/project/IPStrategy';
+import SupplierAnalysis from '@/components/project/SupplierAnalysis';
+import RiskMap from '@/components/project/RiskMap';
+import FounderCoaching from '@/components/project/FounderCoaching';
 
 type View = 'overview' | 'bom' | 'financials' | 'roadmap' | 'sourcing' | 'samples';
 
@@ -48,6 +64,8 @@ export default function ProjectWorkspace() {
     const [completion, setCompletion] = useState<any>({});
     const [activity, setActivity] = useState<any[]>([]);
     const [rfqStatus, setRfqStatus] = useState<any>(null);
+    const [feasibility, setFeasibility] = useState<FeasibilityScores | null>(null);
+    const [isNdaSigned, setIsNdaSigned] = useState(false);
 
     // Editable Summary State
     const [isEditingSummary, setIsEditingSummary] = useState(false);
@@ -73,6 +91,37 @@ export default function ProjectWorkspace() {
             }
             setProject(proj);
 
+            // Parse feasibility - check both database AND playbook_snapshot
+            let feasibilityData = null;
+
+            // First try database feasibility field
+            if (proj.feasibility) {
+                try {
+                    feasibilityData = typeof proj.feasibility === 'string'
+                        ? JSON.parse(proj.feasibility)
+                        : proj.feasibility;
+                } catch (err) {
+                    console.error('Error parsing feasibility:', err);
+                }
+            }
+
+            // If not found, try playbook_snapshot.feasibility
+            if (!feasibilityData && proj.playbook_snapshot?.feasibility) {
+                try {
+                    feasibilityData = typeof proj.playbook_snapshot.feasibility === 'string'
+                        ? JSON.parse(proj.playbook_snapshot.feasibility)
+                        : proj.playbook_snapshot.feasibility;
+                } catch (err) {
+                    console.error('Error parsing snapshot feasibility:', err);
+                }
+            }
+
+            if (feasibilityData) {
+                setFeasibility(feasibilityData as FeasibilityScores);
+            } else {
+                // console.log('No feasibility data found in project or snapshot'); // Removed verbose log
+            }
+
             // 1b. Check RFQ Status
             const { data: rfq } = await supabase
                 .from('rfq_submissions')
@@ -81,6 +130,21 @@ export default function ProjectWorkspace() {
                 .single();
 
             if (rfq) setRfqStatus(rfq.status);
+
+            // 1c. Check NDA Status
+            try {
+                console.log('Fetching NDA status for project view...');
+                const ndaRes = await fetch('/api/nda/status', { cache: 'no-store' });
+                if (ndaRes.ok) {
+                    const ndaData = await ndaRes.json();
+                    console.log('NDA Status Response:', ndaData);
+                    setIsNdaSigned(ndaData.hasSigned);
+                } else {
+                    console.error('NDA Status fetch failed:', ndaRes.status);
+                }
+            } catch (e) {
+                console.error('Failed to check NDA status', e);
+            }
 
             // 2. LocalStorage Data
             if (typeof window !== 'undefined') {
@@ -197,8 +261,6 @@ export default function ProjectWorkspace() {
         return Math.round(((retail - cost) / retail) * 100);
     };
 
-    // Mobile sidebar state
-    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">Loading Workspace...</div>;
 
@@ -239,10 +301,10 @@ export default function ProjectWorkspace() {
                             <div>
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider border border-slate-200">
-                                        {playbook.mode === 'white_label' ? 'White Label' : 'Custom Design'}
+                                        {playbook?.mode === 'white-label' ? 'White Label' : playbook?.mode === 'custom' ? 'Custom Design' : 'Hybrid'}
                                     </span>
                                     <span className="px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-bold uppercase tracking-wider border border-sky-100">
-                                        {playbook.category}
+                                        {playbook?.category}
                                     </span>
                                 </div>
                                 <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">{playbook.productName}</h2>
@@ -255,6 +317,32 @@ export default function ProjectWorkspace() {
                         </div>
                     </div>
                 </div>
+
+                {/* FEASIBILITY SNAPSHOT */}
+                {feasibility ? (
+                    <FeasibilityCard
+                        feasibility={feasibility}
+                        productStyle={
+                            ((feasibility as any).sourcingMode || playbook?.mode) === 'white-label' ? 'White Label' :
+                                ((feasibility as any).sourcingMode || playbook?.mode) === 'custom' ? 'Custom' :
+                                    ((feasibility as any).sourcingMode || playbook?.mode) === 'combination' ? 'Hybrid' :
+                                        undefined
+                        }
+                        uniquenessFactor={(feasibility as any).uniquenessFactor || (playbook as any)?.uniquenessFactor}
+                        uniquenessPoints={
+                            (playbook as any)?.differentiationText
+                                ? [(playbook as any).differentiationText]
+                                : [
+                                    playbook?.mode === 'custom' ? 'Custom design with unique specifications.' : 'Standard product with potential for branding.',
+                                    !(playbook as any)?.selectedSimilarProductId ? 'No direct similar products identified.' : 'Similar products exist in the market.'
+                                ]
+                        }
+                    />
+                ) : (
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center">
+                        <p className="text-sm text-slate-500">Feasibility has not been generated for this project yet.</p>
+                    </div>
+                )}
 
                 {/* 2. SNAPSHOTS ROW */}
                 <div className="grid md:grid-cols-2 gap-6">
@@ -402,168 +490,183 @@ export default function ProjectWorkspace() {
                     </div>
                 </div>
 
+                {/* NEW: AI ANALYSIS SECTIONS (Phase 4) */}
+                {project?.ai_analysis && (
+                    <>
+                        {/* Opportunity Score */}
+                        {project.ai_analysis.opportunity_score !== undefined && (
+                            <OpportunityScore
+                                score={project.ai_analysis.opportunity_score}
+                                rationale={project.ai_analysis.opportunity_rationale}
+                                insights={project.ai_analysis.what_you_might_not_know || []}
+                            />
+                        )}
+
+                        {/* Missing Info Scanner */}
+                        {project.ai_analysis.missing_info_scanner && (
+                            <MissingInfoScanner missingInfo={project.ai_analysis.missing_info_scanner} />
+                        )}
+
+                        {/* Component Breakdown */}
+                        {project.ai_analysis.component_breakdown && project.ai_analysis.component_breakdown.length > 0 && (
+                            <ComponentBreakdown components={project.ai_analysis.component_breakdown} />
+                        )}
+
+                        {/* BOM Draft */}
+                        {project.ai_analysis.bom_draft && project.ai_analysis.bom_draft.length > 0 && (
+                            <BOMDraft bomItems={project.ai_analysis.bom_draft} />
+                        )}
+
+                        {/* Certifications */}
+                        {project.ai_analysis.certifications && project.ai_analysis.certifications.length > 0 && (
+                            <CertificationMap certifications={project.ai_analysis.certifications} />
+                        )}
+
+                        {/* IP Strategy */}
+                        {project.ai_analysis.ip_strategy && (
+                            <IPStrategy
+                                patentabilitySignals={project.ai_analysis.ip_strategy.patentability_signals || []}
+                                copycatRisk={project.ai_analysis.ip_strategy.copycat_risk}
+                                copycatRiskExplanation={project.ai_analysis.ip_strategy.copycat_risk_explanation}
+                                protectionRecommendations={project.ai_analysis.ip_strategy.protection_recommendations || []}
+                            />
+                        )}
+
+                        {/* Supplier Analysis */}
+                        {project.ai_analysis.supplier_analysis && (
+                            <SupplierAnalysis
+                                typesRequired={project.ai_analysis.supplier_analysis.types_required || []}
+                                supplierShortlist={project.ai_analysis.supplier_analysis.shortlist || []}
+                                redFlags={project.ai_analysis.supplier_analysis.red_flags || []}
+                                sourcingTips={project.ai_analysis.supplier_analysis.sourcing_tips || []}
+                            />
+                        )}
+
+                        {/* Risk Map */}
+                        {project.ai_analysis.risk_map && (
+                            <RiskMap riskMap={project.ai_analysis.risk_map} />
+                        )}
+
+                        {/* Founder Coaching */}
+                        {project.ai_analysis.founder_coaching && project.ai_analysis.founder_coaching.length > 0 && (
+                            <FounderCoaching coachingItems={project.ai_analysis.founder_coaching} />
+                        )}
+                    </>
+                )}
+
             </div>
         );
     };
 
     return (
-        <div className="min-h-screen bg-slate-50/50 flex">
+        <ProjectShell
+            title={project?.title}
+            subtitle="Manage your product development lifecycle."
+            activeView={activeView}
+            onChangeView={setActiveView}
+            rfqStatus={rfqStatus}
+            projectImage={playbookFree?.projectImage}
+            progress={progress}
+            headerActions={
+                <div className="flex items-center gap-3">
+                    {isNdaSigned && (
+                        <div className="group relative flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 cursor-help">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-xs font-semibold">NDA Signed</span>
+                            <div className="absolute right-0 top-full mt-2 w-48 p-2 bg-slate-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                Your project information is protected by our NDA.
+                            </div>
+                        </div>
+                    )}
+                    <DownloadPDFButton project={project} playbookFree={playbookFree} />
+                </div>
+            }
+        >
+            {/* DYNAMIC CONTENT SWITCHER */}
+            {activeView === 'overview' && renderOverview()}
 
-            {/* === MOBILE OVERLAY === */}
-            {sidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
+            {activeView === 'financials' && (
+                <div className="max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="mb-6">
+                        <h2 className="text-xl md:text-2xl font-bold text-slate-900">Cost & Pricing</h2>
+                        <p className="text-slate-500 text-sm md:text-base">Analyze unit economics, margins, and startup capital requirements.</p>
+                    </div>
+                    {playbook ? (
+                        <ProjectFinancials playbook={playbook} />
+                    ) : (
+                        <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center">
+                            <p className="text-slate-500">Loading financial data...</p>
+                        </div>
+                    )}
+                </div>
             )}
 
-            {/* === 1. LEFT SIDEBAR === */}
-            <div className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:sticky lg:top-16 lg:inset-y-auto lg:h-[calc(100vh-4rem)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                <ProjectSidebar
-                    activeView={activeView}
-                    onChangeView={(view) => {
-                        setActiveView(view);
-                        setSidebarOpen(false); // Close sidebar on mobile after selection
-                    }}
-                    title={project?.title}
-                    rfqStatus={rfqStatus}
-                />
-            </div>
-
-            {/* === 2. MAIN CONTENT AREA === */}
-            <main className="flex-1 w-full p-4 md:p-8 lg:p-12">
-
-                {/* Mobile Hamburger */}
-                <button
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-white border border-zinc-200 rounded-lg shadow-sm"
-                >
-                    <svg className="w-6 h-6 text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
-
-                {/* Top Header */}
-                <div className="mb-10 mt-12 lg:mt-0">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
-                        <div className="flex items-start gap-4 flex-1">
-                            {/* Blueprint Thumbnail */}
-                            {playbookFree?.projectImage && (
-                                <div className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-900 shadow-sm">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={playbookFree.projectImage}
-                                        alt={`${project?.title} thumbnail`}
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                            )}
-                            <div className="flex-1">
-                                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">{project?.title}</h1>
-                                <p className="text-slate-500 mt-2 text-sm md:text-base">Manage your product development lifecycle.</p>
-                            </div>
-                        </div>
-                        <div className="flex flex-col md:flex-row gap-3 md:items-end">
-                            <DownloadPDFButton project={project} playbookFree={playbookFree} />
-                            <div className="text-left md:text-right">
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Roadmap Progress</p>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-full md:w-48 h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                                        <div className="h-full bg-slate-900 transition-all duration-500" style={{ width: `${progress}%` }} />
-                                    </div>
-                                    <span className="text-lg font-bold text-slate-900">{progress}%</span>
-                                </div>
-                            </div>
-                        </div>
+            {activeView === 'bom' && (
+                <div className="max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="mb-6">
+                        <h2 className="text-xl md:text-2xl font-bold text-slate-900">Product Specifications</h2>
+                        <p className="text-slate-500 text-sm md:text-base">Technical breakdown of your product, materials, and components.</p>
                     </div>
-                    <div className="h-px bg-slate-200 w-full" />
+                    {playbook ? (
+                        <ProjectProductSpecs playbook={playbook} />
+                    ) : (
+                        <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center">
+                            <p className="text-slate-500">Loading product details...</p>
+                        </div>
+                    )}
                 </div>
+            )}
 
-                {/* DYNAMIC CONTENT SWITCHER */}
-                {activeView === 'overview' && renderOverview()}
-
-                {activeView === 'financials' && (
-                    <div className="max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="mb-6">
-                            <h2 className="text-xl md:text-2xl font-bold text-slate-900">Cost & Pricing</h2>
-                            <p className="text-slate-500 text-sm md:text-base">Analyze unit economics, margins, and startup capital requirements.</p>
+            {activeView === 'roadmap' && (
+                <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-0 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                            <h2 className="text-lg font-semibold text-slate-900">Execution Roadmap</h2>
+                            <p className="text-sm text-slate-500">Check off tasks as you complete them to update your project progress.</p>
                         </div>
-                        {playbook ? (
-                            <ProjectFinancials playbook={playbook} />
-                        ) : (
-                            <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center">
-                                <p className="text-slate-500">Loading financial data...</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeView === 'bom' && (
-                    <div className="max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="mb-6">
-                            <h2 className="text-xl md:text-2xl font-bold text-slate-900">Product Specifications</h2>
-                            <p className="text-slate-500 text-sm md:text-base">Technical breakdown of your product, materials, and components.</p>
-                        </div>
-                        {playbook ? (
-                            <ProjectProductSpecs playbook={playbook} />
-                        ) : (
-                            <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center">
-                                <p className="text-slate-500">Loading product details...</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeView === 'roadmap' && (
-                    <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-white border border-slate-200 rounded-2xl p-0 shadow-sm overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                                <h2 className="text-lg font-semibold text-slate-900">Execution Roadmap</h2>
-                                <p className="text-sm text-slate-500">Check off tasks as you complete them to update your project progress.</p>
-                            </div>
-                            {/* Reusing the modal internal logic but rendered inline */}
-                            <InlineRoadmap
-                                phases={roadmapPhases}
-                                completion={completion}
-                                setCompletion={(next: any) => {
-                                    setCompletion(next);
-                                    window.localStorage.setItem(`manupilot_project_${id}_roadmap`, JSON.stringify(next));
-                                }}
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* NEW: SAMPLES VIEW */}
-                {activeView === 'samples' && (
-                    <ProjectSamples projectId={id} playbook={playbook} />
-                )}
-
-                {/* NEW: SOURCING VIEW */}
-                {activeView === 'sourcing' && (
-                    <div className="max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="mb-6">
-                            <h2 className="text-xl md:text-2xl font-bold text-slate-900">Supplier Sourcing</h2>
-                            <p className="text-slate-500 text-sm md:text-base">Create a professional RFQ package to get accurate quotes from factories.</p>
-                        </div>
-
-                        <RFQBuilder
-                            projectId={id}
-                            projectTitle={project?.title}
-                            sourcingMode={playbookFree?.sourcingMode || 'custom'}
-                            bomCount={playbookFree?.bomDraft?.length || 0}
-                            // Try to get realistic target price from financials, or empty string
-                            targetPrice={playbookFree?.financials?.unitEconomics?.landedCost || playbookFree?.financials?.estimatedLandedCost || ''}
-                            // Try to get realistic MOQ from financials
-                            targetMoq={playbookFree?.financials?.startupCapital?.firstBatchCost ? 'Calculated from Inventory' : '500 units'}
-                            playbook={playbook || undefined} // Pass full playbook
-                            onSuccess={() => setRfqStatus('submitted')}
+                        {/* Reusing the modal internal logic but rendered inline */}
+                        <InlineRoadmap
+                            phases={roadmapPhases}
+                            completion={completion}
+                            setCompletion={(next: any) => {
+                                setCompletion(next);
+                                window.localStorage.setItem(`manupilot_project_${id}_roadmap`, JSON.stringify(next));
+                            }}
                         />
                     </div>
-                )}
+                </div>
+            )}
 
-            </main>
-        </div>
+            {/* NEW: SAMPLES VIEW */}
+            {activeView === 'samples' && (
+                <ProjectSamples projectId={id} playbook={playbook} />
+            )}
+
+            {/* NEW: SOURCING VIEW */}
+            {activeView === 'sourcing' && (
+                <div className="max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="mb-6">
+                        <h2 className="text-xl md:text-2xl font-bold text-slate-900">Supplier Sourcing</h2>
+                        <p className="text-slate-500 text-sm md:text-base">Create a professional RFQ package to get accurate quotes from factories.</p>
+                    </div>
+
+                    <RFQBuilder
+                        projectId={id}
+                        projectTitle={project?.title}
+                        sourcingMode={playbookFree?.sourcingMode || 'custom'}
+                        bomCount={playbookFree?.bomDraft?.length || 0}
+                        // Try to get realistic target price from financials, or empty string
+                        targetPrice={playbookFree?.financials?.unitEconomics?.landedCost || playbookFree?.financials?.estimatedLandedCost || ''}
+                        // Try to get realistic MOQ from financials
+                        targetMoq={playbookFree?.financials?.startupCapital?.firstBatchCost ? 'Calculated from Inventory' : '500 units'}
+                        playbook={playbook || undefined} // Pass full playbook
+                        onSuccess={() => setRfqStatus('submitted')}
+                    />
+                </div>
+            )}
+        </ProjectShell>
     );
 }
 
