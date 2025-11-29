@@ -204,17 +204,22 @@ export default function ProjectSamples({ projectId, playbook }: ProjectSamplesPr
     async function handleEvaluation(status: SampleStatus, notes: string) {
         if (!selectedSampleId) return;
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('samples')
                 .update({ status, notes, evaluated_at: new Date().toISOString() })
-                .eq('id', selectedSampleId);
+                .eq('id', selectedSampleId)
+                .select();
 
             if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error('Permission denied: Unable to update sample. Please check if you are the project owner.');
+            }
 
             setSamples(samples.map(s => s.id === selectedSampleId ? { ...s, status, notes } : s));
+            alert('Evaluation saved successfully!');
         } catch (error) {
             console.error('Error saving evaluation:', error);
-            alert('Failed to save evaluation.');
+            alert(`Failed to save evaluation: ${error.message || JSON.stringify(error)}`);
         }
     }
 

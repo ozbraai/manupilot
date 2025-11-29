@@ -1,9 +1,10 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import PartnerCard, { Partner } from '@/components/partners/PartnerCard';
 import { PlaybookV2 } from '@/types/playbook';
+import { pdf } from '@react-pdf/renderer';
+import RFQDocumentPDF from '@/components/pdf/RFQDocumentPDF';
+import { Brain, Download, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 
 type RFQBuilderProps = {
   projectId: string;
@@ -14,6 +15,13 @@ type RFQBuilderProps = {
   targetMoq: string;
   playbook?: PlaybookV2; // Added playbook prop
   onSuccess?: () => void;
+};
+
+type SpecItem = {
+  feature: string;
+  spec: string;
+  tolerance: string;
+  criticality: string;
 };
 
 // === HELPER: CATEGORY GUIDANCE ===
@@ -93,6 +101,10 @@ export default function RFQBuilder({
   const [matchedPartners, setMatchedPartners] = useState<Partner[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
 
+  // Specs State
+  const [specs, setSpecs] = useState<SpecItem[]>([]);
+  const [isGeneratingSpecs, setIsGeneratingSpecs] = useState(false);
+
   // Message Builder State
   const [messageBody, setMessageBody] = useState('');
 
@@ -116,10 +128,11 @@ export default function RFQBuilder({
   const isWhiteLabel = sourcingMode === 'white-label';
   const docTitle = isWhiteLabel ? 'Request for Quotation (Private Label)' : 'Request for Quotation (OEM Manufacturing)';
   const categoryGuidance = getCategoryGuidance(playbook?.category, sourcingMode);
+  const rfqRef = `RFQ-${new Date().getFullYear()}-${projectId.substring(0, 4).toUpperCase()}`;
 
   // Initialize Message Body
   useEffect(() => {
-    const specs = [
+    const specsList = [
       `Product: ${playbook?.coreProduct || projectTitle}`,
       `Category: ${playbook?.category || 'General'}`,
       `Target Qty: ${targetMoq}`,
@@ -127,7 +140,7 @@ export default function RFQBuilder({
       playbook?.free?.materials?.length ? `Materials: ${playbook.free.materials.join(', ')}` : '',
     ].filter(Boolean).join('\n- ');
 
-    const initialMsg = `Hi,\n\nI am the Purchasing Manager for a new project. We are looking for a factory to produce a ${playbook?.category || 'product'}: ${projectTitle}.\n\nKey Specifications:\n- ${specs}\n\nPlease see the attached RFQ for full details.\n\nCould you please:\n1. Confirm if you can manufacture this?\n2. Provide a rough EXW quote based on the attached specs?\n\nThanks,`;
+    const initialMsg = `Hi,\n\nI am the Purchasing Manager for a new project. We are looking for a factory to produce a ${playbook?.category || 'product'}: ${projectTitle}.\n\nKey Specifications:\n- ${specsList}\n\nPlease see the attached RFQ for full details.\n\nCould you please:\n1. Confirm if you can manufacture this?\n2. Provide a rough EXW quote based on the attached specs?\n\nThanks,`;
 
     setMessageBody(initialMsg);
   }, [playbook, projectTitle, targetMoq, targetPrice]);
@@ -156,6 +169,12 @@ export default function RFQBuilder({
             setSubmitSuccess(true); // Show success view if matches exist
           }
         }
+
+        // Load saved specs if any
+        if (rfq?.rfq_data?.specs) {
+          setSpecs(rfq.rfq_data.specs);
+        }
+
       } catch (error) {
         console.error('Error loading matches:', error);
       } finally {
@@ -176,6 +195,53 @@ export default function RFQBuilder({
 
   function removeQuestion(index: number) {
     setQuestions(questions.filter((_, i) => i !== index));
+  }
+
+  async function handleGenerateSpecs() {
+    setIsGeneratingSpecs(true);
+    try {
+      const res = await fetch('/api/rfq/generate-specs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productTitle: projectTitle,
+          category: playbook?.category,
+          description: playbook?.coreProduct || projectTitle
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setSpecs(data.specs);
+    } catch (error: any) {
+      console.error('Error generating specs:', error);
+      alert('Failed to generate specs: ' + error.message);
+    } finally {
+      setIsGeneratingSpecs(false);
+    }
+  }
+
+  async function handleDownloadPDF() {
+    const blob = await pdf(
+      <RFQDocumentPDF
+        rfqRef={rfqRef}
+        date={new Date().toLocaleDateString()}
+        projectTitle={projectTitle}
+        specs={specs}
+        targetMoq={targetMoq}
+        targetPrice={targetPrice}
+        message={messageBody}
+      />
+    ).toBlob();
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${rfqRef}_${projectTitle.replace(/\s+/g, '_')}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   async function handleGenerateRFQ() {
@@ -203,6 +269,7 @@ export default function RFQBuilder({
         includePackaging,
         questions,
         messageBody, // Include the custom message
+        specs, // Include the generated specs
         generatedAt: new Date().toISOString(),
       };
 
@@ -256,12 +323,21 @@ export default function RFQBuilder({
           <p className="text-slate-600 max-w-md mx-auto mb-6">
             Your Request for Quotation has been securely saved and is ready to be shared with suppliers.
           </p>
-          <button
-            onClick={() => setSubmitSuccess(false)}
-            className="text-indigo-600 font-medium hover:underline"
-          >
-            View RFQ Details
-          </button>
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-slate-800 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download PDF
+            </button>
+            <button
+              onClick={() => setSubmitSuccess(false)}
+              className="text-indigo-600 font-medium hover:underline px-6 py-2.5"
+            >
+              Edit Details
+            </button>
+          </div>
         </div>
 
         {/* Matched Partners */}
@@ -278,10 +354,6 @@ export default function RFQBuilder({
             <div className="grid gap-4 md:grid-cols-2">
               {matchedPartners.map(partner => (
                 <div key={partner.id} className="relative">
-                  {/* Optional: Add match reason badge if we had the data */}
-                  {/* <div className="absolute top-4 right-4 z-20 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full">
-                      95% Match
-                   </div> */}
                   <PartnerCard
                     partner={partner}
                     basePath="manufacturers"
@@ -350,10 +422,75 @@ export default function RFQBuilder({
           </ul>
         </section>
 
-        {/* 1. RFQ SUMMARY & MESSAGE */}
+        {/* 1. TECHNICAL SPECS (NEW) */}
+        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">1</div>
+              <h3 className="font-semibold text-slate-900">Technical Specifications</h3>
+            </div>
+            <button
+              onClick={handleGenerateSpecs}
+              disabled={isGeneratingSpecs}
+              className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50"
+            >
+              {isGeneratingSpecs ? (
+                <><span className="animate-spin">↻</span> Generating...</>
+              ) : (
+                <><Sparkles className="w-3 h-3" /> Auto-Fill with AI</>
+              )}
+            </button>
+          </div>
+
+          <div className="pl-11">
+            {specs.length > 0 ? (
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-2">Feature</th>
+                      <th className="px-4 py-2">Specification</th>
+                      <th className="px-4 py-2">Tolerance</th>
+                      <th className="px-4 py-2">Criticality</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {specs.map((spec, i) => (
+                      <tr key={i} className="bg-white">
+                        <td className="px-4 py-2 font-medium text-slate-900">{spec.feature}</td>
+                        <td className="px-4 py-2 text-slate-600">{spec.spec}</td>
+                        <td className="px-4 py-2 text-slate-500 text-xs">{spec.tolerance}</td>
+                        <td className="px-4 py-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${spec.criticality.toLowerCase() === 'high' ? 'bg-red-50 text-red-600' :
+                            spec.criticality.toLowerCase() === 'medium' ? 'bg-amber-50 text-amber-600' :
+                              'bg-slate-100 text-slate-500'
+                            }`}>
+                            {spec.criticality}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl bg-slate-50">
+                <p className="text-sm text-slate-500 mb-2">No technical specs defined yet.</p>
+                <button
+                  onClick={handleGenerateSpecs}
+                  className="text-indigo-600 text-sm font-bold hover:underline"
+                >
+                  Generate using AI Co-Pilot
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* 2. RFQ SUMMARY & MESSAGE */}
         <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">1</div>
+            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">2</div>
             <h3 className="font-semibold text-slate-900">RFQ Summary & Message</h3>
           </div>
 
@@ -361,7 +498,7 @@ export default function RFQBuilder({
             {/* Summary Pills */}
             <div className="flex flex-wrap gap-2">
               <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200">
-                {playbook?.mode === 'white_label' ? 'White Label' : 'Custom OEM'}
+                {sourcingMode === 'white-label' ? 'White Label' : 'Custom OEM'}
               </span>
               <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200">
                 Target: {targetPrice}
@@ -390,10 +527,10 @@ export default function RFQBuilder({
           </div>
         </section>
 
-        {/* 2. VETTING QUESTIONS */}
+        {/* 3. VETTING QUESTIONS */}
         <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">2</div>
+            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">3</div>
             <h3 className="font-semibold text-slate-900">Additional Questions</h3>
           </div>
 
@@ -430,7 +567,7 @@ export default function RFQBuilder({
           </div>
         </section>
 
-        {/* 3. GENERATE BUTTON */}
+        {/* GENERATE BUTTON */}
         <div className="flex justify-end pt-4">
           <button
             onClick={handleGenerateRFQ}
@@ -464,7 +601,7 @@ export default function RFQBuilder({
             {/* Preview content mirrors state */}
             <div className="border-b border-slate-300 pb-4 mb-4">
               <h2 className="text-sm font-bold text-slate-900 uppercase mb-1">{docTitle}</h2>
-              <p>Ref: MP-5483</p>
+              <p>Ref: {rfqRef}</p>
               <p>Date: {new Date().toLocaleDateString()}</p>
             </div>
             <div className="space-y-4">
@@ -472,24 +609,38 @@ export default function RFQBuilder({
                 <p className="font-bold text-slate-800">PROJECT:</p>
                 <p>{projectTitle}</p>
               </div>
-              <div>
-                <p className="font-bold text-slate-800">SPECIFICATIONS:</p>
-                <p>- Mode: {isWhiteLabel ? 'Private Label (ODM)' : 'Custom (OEM)'}</p>
-                <p>- Target Qty: {targetMoq}</p>
-                {isWhiteLabel && includeLogo && <p>- Requirement: Custom Logo Print</p>}
-                {isWhiteLabel && includePackaging && <p>- Requirement: Custom Color Box</p>}
+
+              {/* Fixed Skeleton Preview */}
+              <div className="bg-slate-100 p-2 rounded">
+                <p className="font-bold text-slate-800 mb-1">COMMERCIAL TERMS (FIXED):</p>
+                <p>- Payment: 30% Deposit / 70% Balance</p>
+                <p>- Incoterms: FOB</p>
+                <p>- QC: AQL 2.5 Required</p>
               </div>
+
+              {/* Specs Preview */}
+              {specs.length > 0 && (
+                <div>
+                  <p className="font-bold text-slate-800">TECHNICAL SPECS:</p>
+                  {specs.map((s, i) => (
+                    <p key={i}>- {s.feature}: {s.spec} ({s.tolerance})</p>
+                  ))}
+                </div>
+              )}
+
               <div>
                 <p className="font-bold text-slate-800">MESSAGE:</p>
                 <p className="whitespace-pre-wrap border-l-2 border-slate-300 pl-2 italic">
                   {messageBody}
                 </p>
               </div>
-              <div>
-                <p className="font-bold text-slate-800">ADDITIONAL QUESTIONS:</p>
-                <ol className="list-decimal pl-4 space-y-1">
-                  {questions.map((q, i) => <li key={i}>{q}</li>)}
-                </ol>
+
+              <div className="bg-slate-100 p-2 rounded">
+                <p className="font-bold text-slate-800 mb-1">REQUIRED PRICE BREAKDOWN:</p>
+                <p>[ ] Unit Price (EXW)</p>
+                <p>[ ] Packaging Cost</p>
+                <p>[ ] FOB Charges</p>
+                <p>[ ] Tooling / NRE</p>
               </div>
             </div>
             <div className="mt-8 pt-4 border-t border-slate-300 text-center opacity-50">

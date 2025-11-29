@@ -42,8 +42,8 @@ export default function SampleEvaluation({ sample, onUpdate }: SampleEvaluationP
                 {/* Decision Radios */}
                 <div className="grid grid-cols-2 gap-4">
                     <label className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center gap-2 transition-all ${decision === 'approved'
-                            ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500'
-                            : 'bg-white border-slate-200 hover:border-emerald-200'
+                        ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500'
+                        : 'bg-white border-slate-200 hover:border-emerald-200'
                         }`}>
                         <input
                             type="radio"
@@ -60,8 +60,8 @@ export default function SampleEvaluation({ sample, onUpdate }: SampleEvaluationP
                     </label>
 
                     <label className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center gap-2 transition-all ${decision === 'revision_required'
-                            ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500'
-                            : 'bg-white border-slate-200 hover:border-amber-200'
+                        ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500'
+                        : 'bg-white border-slate-200 hover:border-amber-200'
                         }`}>
                         <input
                             type="radio"
@@ -98,11 +98,11 @@ export default function SampleEvaluation({ sample, onUpdate }: SampleEvaluationP
                     onClick={handleSave}
                     disabled={!decision || isSaving}
                     className={`w-full py-3 rounded-xl font-bold text-white transition-all ${!decision ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
-                            decision === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100' :
-                                'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-100'
+                        decision === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100' :
+                            'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-100'
                         }`}
                 >
-                    {isSaving ? 'Saving...' : 'Submit Evaluation'}
+                    {isSaving ? 'Saving...' : !decision ? 'Select a Decision to Submit' : 'Submit Evaluation'}
                 </button>
             </div>
         </div>

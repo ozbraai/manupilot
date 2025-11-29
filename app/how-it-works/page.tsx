@@ -1,153 +1,178 @@
+import React from 'react';
+import { Brain, Scale, Microscope, Ship, ArrowRight, CheckCircle2, Sparkles, Users } from 'lucide-react';
+
 export default function HowItWorksPage() {
   const steps = [
     {
       id: '01',
-      label: 'Capture your idea',
-      title: 'Start with what you already know.',
-      body: 'Tell ManuPilot what you want to build in plain language — the problem you’re solving, who it’s for, and where you want to manufacture. No engineering degree required.',
-      badge: '10–15 minutes',
-      icon: '🧠',
+      label: 'Define & Validate',
+      title: 'Turn your idea into a factory-ready spec.',
+      body: 'Don’t start with a blank email. Use our AI Co-pilot to define your product requirements, materials, and target costs. We validate feasibility instantly so you don’t waste time on impossible builds.',
+      badge: 'AI Feasibility Analysis',
+      icon: <Brain className="w-6 h-6 text-white" />,
+      color: 'bg-indigo-600',
     },
     {
       id: '02',
-      label: 'Co-pilot builds your spec',
-      title: 'Your answers become a factory-ready brief.',
-      body: 'Our AI co-pilot turns your answers into structured specifications: dimensions, materials, target costs, risk notes, and compliance flags that factories can actually respond to.',
-      badge: 'AI-powered',
-      icon: '🤖',
+      label: 'Source & Compare',
+      title: 'Get quotes you can actually compare.',
+      body: 'Send your spec to our network of vetted manufacturers. Our system standardizes every quote so you can compare pricing, MOQs, and lead times side-by-side. No more hidden costs.',
+      badge: 'Smart RFQ Management',
+      icon: <Scale className="w-6 h-6 text-white" />,
+      color: 'bg-indigo-600',
     },
     {
       id: '03',
-      label: 'Choose your manufacturing path',
-      title: 'Pick the right partners — local or global.',
-      body: 'Use the marketplace to find trusted agents, factories and freight partners in Australia, China, Vietnam, India and beyond. Assign your project and keep everything in one place.',
-      badge: 'Trusted partners',
-      icon: '🌏',
+      label: 'Sample & Quality Control',
+      title: 'Catch defects before they ship.',
+      body: 'Manage the sampling process digitally. Upload photos of your samples and let our AI Vision analyze them for defects, finish quality, and spec compliance. Approve or request revisions with one click.',
+      badge: 'AI Visual Inspection',
+      icon: <Microscope className="w-6 h-6 text-white" />,
+      color: 'bg-indigo-600',
     },
     {
       id: '04',
-      label: 'Launch with confidence',
-      title: 'Track samples, shipments and economics.',
-      body: 'Keep an eye on timelines, costs and quality as you move from samples to production to shipping — with a single source of truth for your entire team.',
-      badge: 'End-to-end view',
-      icon: '🚢',
+      label: 'Production & Logistics',
+      title: 'Ship with confidence.',
+      body: 'Move from prototype to mass production seamlessly. Track your orders, manage freight partners, and keep all your shipping documents in one secure place.',
+      badge: 'End-to-End Tracking',
+      icon: <Ship className="w-6 h-6 text-white" />,
+      color: 'bg-indigo-600',
     },
   ];
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
+    <main className="min-h-screen bg-white text-slate-900 font-sans">
       {/* HERO SECTION */}
-      <section className="border-b border-slate-200 bg-slate-50">
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py  -20 md:py-24 flex flex-col gap-10 md:flex-row md:items-center">
-          <div className="flex-1 space-y-6">
-            <p className="text-xs font-semibold tracking-[0.25em] text-slate-500 uppercase">
-              How it works
-            </p>
-            <h1 className="text-3xl md:text-5xl font-semibold leading-tight tracking-tight">
-              From idea to factory-ready in four clear steps.
+      <section className="relative overflow-hidden bg-slate-50 border-b border-slate-200">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-30 pointer-events-none">
+          <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[80%] rounded-full bg-indigo-200/50 blur-3xl"></div>
+          <div className="absolute top-[40%] -left-[10%] w-[40%] h-[60%] rounded-full bg-emerald-200/50 blur-3xl"></div>
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-8 py-20 md:py-28 flex flex-col gap-12 md:flex-row md:items-center">
+          <div className="flex-1 space-y-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-wider">
+              <Sparkles className="w-3 h-3" />
+              <span>The New Standard</span>
+            </div>
+
+            <h1 className="text-4xl md:text-6xl font-bold leading-tight tracking-tight text-slate-900">
+              The operating system for <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-emerald-500">modern manufacturing</span>.
             </h1>
-            <p className="text-base md:text-lg text-slate-600">
-              ManuPilot gives you a single guided flow instead of dozens of tabs, inboxes
-              and spreadsheets. Here&apos;s what the journey looks like when you start a new
-              project.
+
+            <p className="text-lg md:text-xl text-slate-600 max-w-lg leading-relaxed">
+              ManuPilot replaces messy spreadsheets and email chains with a single, intelligent platform. From AI-validated specs to quality-checked shipments.
             </p>
-            <div className="flex flex-wrap gap-3 pt-4">
+
+            <div className="flex flex-wrap gap-4 pt-4">
               <a
                 href="/register"
-                className="inline-flex items-center rounded-full bg-sky-600 text-white px-6 py-3 text-sm font-medium shadow-[0_12px_30px_rgba(56,189,248,0.35)] hover:bg-sky-500 transition"
+                className="inline-flex items-center gap-2 rounded-full bg-indigo-600 text-white px-8 py-4 text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
               >
-                Start a project
+                Start a Project
+                <ArrowRight className="w-4 h-4" />
               </a>
               <a
                 href="/dashboard"
-                className="inline-flex items-center rounded-full border border-slate-300 text-slate-800 px-6 py-3 text-sm font-medium hover:bg-slate-100 transition"
+                className="inline-flex items-center rounded-full bg-white border border-slate-200 text-slate-700 px-8 py-4 text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
               >
-                View sample dashboard
+                View Demo Dashboard
               </a>
             </div>
           </div>
 
-          <div className="flex-1">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-[0_18px_45px_rgba(15,23,42,0.08)] p-6 space-y-5">
-              <p className="text-sm font-semibold text-slate-700">
-                Your project, at a glance
-              </p>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
+          <div className="flex-1 relative">
+            {/* Abstract UI Representation */}
+            <div className="relative z-10 bg-white rounded-2xl shadow-2xl shadow-slate-200/50 border border-slate-200 p-6 md:p-8 space-y-6 transform md:rotate-1 hover:rotate-0 transition-transform duration-500">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="font-bold text-slate-900">Project: AeroPress Go</h3>
+                  <p className="text-xs text-slate-500">Status: <span className="text-emerald-600 font-medium">Ready for Production</span></p>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-lg">☕️</div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+                  <div className="bg-indigo-100 p-2 rounded-lg">
+                    <Brain className="w-5 h-5 text-indigo-600" />
+                  </div>
                   <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Project</p>
-                    <p className="text-sm font-medium text-slate-900">
-                      &ldquo;Outdoor cooking kit – AU + CN&rdquo;
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 text-xs px-2 py-1 border border-emerald-100">
-                    In spec review
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div className="rounded-2xl border border-slate-200 p-3">
-                    <p className="text-slate-500 mb-1">Production route</p>
-                    <p className="font-medium text-slate-900">AU assembly + CN parts</p>
-                    <p className="text-slate-500 mt-1">Lead time est. 8–10 weeks</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 p-3">
-                    <p className="text-slate-500 mb-1">Target landed cost</p>
-                    <p className="font-semibold text-slate-900">$38.00 / unit</p>
-                    <p className="text-slate-500 mt-1">MOQ 250 units</p>
+                    <p className="text-xs font-bold text-indigo-900 uppercase">AI Insight</p>
+                    <p className="text-sm text-indigo-800">Design is feasible. Recommended material: 304 Stainless Steel.</p>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 p-3 text-xs">
-                  <p className="text-slate-500 mb-1">Co-pilot highlights</p>
-                  <ul className="space-y-1 text-slate-600">
-                    <li>• Suggest stainless + hardwood combination to hit weight & cost targets.</li>
-                    <li>• Flag food-contact compliance needed for AU/NZ.</li>
-                    <li>• Recommend two vetted agents in AU and CN to review.</li>
-                  </ul>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl border border-slate-100 bg-slate-50">
+                    <p className="text-xs text-slate-500 mb-1">Target Cost</p>
+                    <p className="font-bold text-slate-900">$12.50 / unit</p>
+                  </div>
+                  <div className="p-3 rounded-xl border border-slate-100 bg-slate-50">
+                    <p className="text-xs text-slate-500 mb-1">Supplier</p>
+                    <p className="font-bold text-slate-900">Shenzhen Mfg.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-500 pt-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span>Sample T2 Approved</span>
+                  <span className="mx-2">•</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span>QC Passed</span>
                 </div>
               </div>
             </div>
+
+            {/* Decorative Elements */}
+            <div className="absolute -z-10 top-10 -right-10 w-full h-full bg-slate-100 rounded-2xl border border-slate-200 transform rotate-6 opacity-50"></div>
           </div>
         </div>
       </section>
 
       {/* STEPS GRID */}
-      <section className="py-16 md:py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-6 md:px-10">
-          <div className="max-w-3xl mb-10">
-            <h2 className="text-2xl md:text-3xl font-semibold mb-4">
-              What happens after you hit &ldquo;Start a project&rdquo;.
+      <section className="py-20 md:py-28 bg-white">
+        <div className="max-w-7xl mx-auto px-6 md:px-8">
+          <div className="max-w-3xl mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">
+              From back-of-napkin to <br className="hidden md:block" />
+              bill-of-lading in four steps.
             </h2>
-            <p className="text-slate-600">
-              ManuPilot doesn&apos;t just give you another form. It walks you through the four
-              stages that matter most, with your answers flowing into a spec factories
-              can actually use.
+            <p className="text-lg text-slate-600 leading-relaxed">
+              We've codified the manufacturing process into a streamlined workflow.
+              No more guessing what comes next. ManuPilot guides you through every critical milestone.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-8 md:grid-cols-2">
             {steps.map((step) => (
               <div
                 key={step.id}
-                className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 hover:shadow-md transition"
+                className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 hover:shadow-xl hover:shadow-slate-200/50 hover:border-indigo-100 transition-all duration-300"
               >
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className="h-9 w-9 rounded-full bg-sky-600 text-white flex items-center justify-center text-sm font-semibold">
+                <div className="flex items-start gap-6">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`h-12 w-12 rounded-2xl ${step.color} shadow-lg shadow-indigo-200 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300`}>
                       {step.icon}
                     </div>
-                    <span className="mt-2 text-[11px] text-slate-500">{step.id}</span>
+                    <span className="text-xs font-bold text-slate-300 font-mono">{step.id}</span>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                      {step.label}
-                    </p>
-                    <h3 className="text-sm md:text-base font-semibold text-slate-900">
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs font-bold tracking-wider text-indigo-600 uppercase">
+                        {step.label}
+                      </p>
+                      <span className="inline-flex rounded-full bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600 px-2 py-0.5">
+                        {step.badge}
+                      </span>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-900 transition-colors">
                       {step.title}
                     </h3>
-                    <p className="text-sm text-slate-600">{step.body}</p>
-                    <span className="inline-flex mt-1 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600 px-2 py-1">
-                      {step.badge}
-                    </span>
+                    <p className="text-base text-slate-600 leading-relaxed">{step.body}</p>
                   </div>
                 </div>
               </div>
@@ -157,56 +182,62 @@ export default function HowItWorksPage() {
       </section>
 
       {/* WHO IT'S FOR */}
-      <section className="py-16 md:py-20 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 md:px-10">
-          <div className="grid gap-10 md:grid-cols-[1.1fr_1.1fr] items-start">
+      <section className="py-20 md:py-28 bg-slate-900 text-white relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
+
+        <div className="max-w-7xl mx-auto px-6 md:px-8 relative z-10">
+          <div className="grid gap-16 md:grid-cols-[1fr_1.2fr] items-start">
             <div>
-              <p className="text-xs font-semibold tracking-[0.25em] text-slate-500 uppercase mb-3">
-                Who it&apos;s for
-              </p>
-              <h2 className="text-2xl md:text-3xl font-semibold mb-4">
-                Built for founders, operators and hands-on makers.
+              <div className="inline-block px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-bold uppercase tracking-wider mb-6">
+                Who it's for
+              </div>
+              <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
+                Built for builders,<br /> not bureaucrats.
               </h2>
-              <p className="text-slate-600">
-                Whether you&apos;re launching your first product or reworking an existing supply
-                chain, ManuPilot gives you structure without getting in your way.
+              <p className="text-slate-400 text-lg leading-relaxed">
+                Whether you're a solo founder or a scaling operations team, ManuPilot gives you the tools to move fast without breaking things.
               </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <p className="text-sm font-semibold text-slate-900 mb-1">
-                  Early-stage founders
-                </p>
-                <p className="text-sm text-slate-600">
-                  Turn a rough idea into a plan you can show to factories, partners or investors
-                  without needing a full product team.
-                </p>
-              </div>
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <p className="text-sm font-semibold text-slate-900 mb-1">
-                  Growing brands
-                </p>
-                <p className="text-sm text-slate-600">
-                  Standardise how you brief factories, compare quotes and track batches across
-                  regions and product lines.
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6 hover:bg-slate-800 transition-colors">
+                <div className="bg-indigo-500/20 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
+                  <Sparkles className="w-5 h-5 text-indigo-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Founders</h3>
+                <p className="text-sm text-slate-400">
+                  Validate your idea and get to production without hiring a sourcing agent.
                 </p>
               </div>
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <p className="text-sm font-semibold text-slate-900 mb-1">
-                  Product & ops teams
-                </p>
-                <p className="text-sm text-slate-600">
-                  Give your team one place to see specs, timelines, partners and risk — instead of
-                  chasing details in email threads.
+
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6 hover:bg-slate-800 transition-colors">
+                <div className="bg-emerald-500/20 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
+                  <Scale className="w-5 h-5 text-emerald-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Scaling Brands</h3>
+                <p className="text-sm text-slate-400">
+                  Standardize your supply chain and manage multiple SKUs in one place.
                 </p>
               </div>
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <p className="text-sm font-semibold text-slate-900 mb-1">
-                  Manufacturing partners
+
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6 hover:bg-slate-800 transition-colors">
+                <div className="bg-amber-500/20 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
+                  <Users className="w-5 h-5 text-amber-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Product Teams</h3>
+                <p className="text-sm text-slate-400">
+                  Collaborate on specs and QC without endless email threads.
                 </p>
-                <p className="text-sm text-slate-600">
-                  Receive clearer briefs, fewer revisions and better-prepared clients — all
-                  standardised inside ManuPilot.
+              </div>
+
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6 hover:bg-slate-800 transition-colors">
+                <div className="bg-purple-500/20 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
+                  <Brain className="w-5 h-5 text-purple-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Innovators</h3>
+                <p className="text-sm text-slate-400">
+                  Push boundaries with materials and designs, backed by AI feasibility checks.
                 </p>
               </div>
             </div>
@@ -215,28 +246,28 @@ export default function HowItWorksPage() {
       </section>
 
       {/* CLOSING CTA */}
-      <section className="py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-6 md:px-10 text-center space-y-6">
-          <h2 className="text-2xl md:text-3xl font-semibold">
-            Start with one project. Let ManuPilot handle the heavy lifting.
+      <section className="py-24 bg-white">
+        <div className="max-w-4xl mx-auto px-6 md:px-10 text-center space-y-8">
+          <h2 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight">
+            Ready to build something real?
           </h2>
-          <p className="text-slate-600 max-w-2xl mx-auto">
-            Give your next idea a clear path from concept to factory-ready. No more guessing,
-            no more endless spreadsheets — just a guided flow and a co-pilot that knows what
-            factories need.
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Join hundreds of founders using ManuPilot to bring their products to life.
+            Start your first project today—it takes less than 5 minutes.
           </p>
-          <div className="flex justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
             <a
               href="/register"
-              className="inline-flex items-center rounded-full bg-sky-600 text-white px-7 py-3 text-sm font-medium hover:bg-sky-500 transition"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-indigo-600 text-white px-8 py-4 text-base font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-200"
             >
-              Create a free ManuPilot account
+              Start Your Free Project
+              <ArrowRight className="w-5 h-5" />
             </a>
             <a
               href="/about"
-              className="inline-flex items-center rounded-full border border-slate-300 text-slate-800 px-7 py-3 text-sm font-medium hover:bg-slate-100 transition"
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 text-slate-700 px-8 py-4 text-base font-bold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
             >
-              Learn about our story
+              Read Our Manifesto
             </a>
           </div>
         </div>

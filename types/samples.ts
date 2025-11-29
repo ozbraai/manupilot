@@ -27,5 +27,6 @@ export type SamplePhoto = {
     sample_id: string;
     file_url: string;
     caption?: string;
+    ai_analysis?: any; // JSONB from DB
     created_at: string;
 };

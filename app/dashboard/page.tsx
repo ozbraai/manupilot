@@ -342,7 +342,7 @@ export default function Dashboard() {
     <main className="min-h-screen bg-slate-50/50 pb-20">
       {/* HERO SECTION */}
       <div className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 py-10 md:py-12">
+        <div className="max-w-7xl mx-auto px-6 py-10 md:py-12">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
@@ -378,7 +378,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+      <div className="max-w-7xl mx-auto px-6 py-10 space-y-10">
 
         {/* STATS & DRAFT ROW */}
         <section className="grid gap-6 md:grid-cols-12">

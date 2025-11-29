@@ -23,11 +23,33 @@ type SimilarProduct = {
     reason: string;
 };
 
+type ComponentData = {
+    id: string;
+    name: string;
+    category: string;
+    defaultMaterial: string;
+    selectedMaterial?: string;
+    materialOptions: string[];
+    defaultFeatures: string[];
+    selectedFeatures?: string[];
+    featureOptions: Record<string, string[]>;
+};
+
+type VisualElement = {
+    id: string;
+    name: string;
+    type: string;
+    options: string[];
+    default: string;
+    selectedOption?: string;
+};
+
 // === CONSTANTS ===
 const ANALYSIS_STEPS = [
     'Understanding your idea...',
+    'Extracting product components...',
+    'Generating product visualization...',
     'Searching for similar products...',
-    'Extracting key characteristics...',
     'Estimating typical costs, MOQs and timelines...',
     'Assessing manufacturability and complexity...',
 ];
@@ -82,10 +104,20 @@ export default function WizardModal() {
         suggestedUniquenessFactor?: UniquenessFactor;
     } | null>(null);
 
-    // Step 2: Confirm
+    // Step 2: Visual Configurator (NEW)
+    const [componentsData, setComponentsData] = useState<{
+        components: ComponentData[];
+        visualElements: VisualElement[];
+    } | null>(null);
+
+    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+    const [imageGenerating, setImageGenerating] = useState(false);
+    const [imagePrompt, setImagePrompt] = useState<string>('');
+
+    // Step 3: Confirm (was Step 2)
     const [selectedSimilarProductId, setSelectedSimilarProductId] = useState<string | null>(null);
 
-    // Step 3: Approach
+    // Step 4: Approach (was Step 3)
     const [sourcingMode, setSourcingMode] = useState<SourcingMode | null>(null);
     const [uniquenessFactor, setUniquenessFactor] = useState<UniquenessFactor | null>(null);
 
@@ -103,6 +135,9 @@ export default function WizardModal() {
             setDesignStage('Idea only');
             setImageFile(null);
             setAnalysisData(null);
+            setComponentsData(null);
+            setGeneratedImage(null);
+            setImagePrompt('');
             setSelectedSimilarProductId(null);
             setSourcingMode(null);
             setUniquenessFactor(null);
@@ -171,28 +206,175 @@ export default function WizardModal() {
         setLoadingStepIndex(0);
 
         try {
-            const res = await fetch('/api/wizard/analyze', {
+            // Step 1: Analyze idea (existing)
+            const analyzeRes = await fetch('/api/wizard/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     idea,
                     referenceLink,
                     designStage,
-                    image: imageFile ? { name: imageFile.name } : null // Metadata only for now
+                    image: imageFile ? { name: imageFile.name } : null
                 })
             });
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Analysis failed');
+            const analyzeData = await analyzeRes.json();
+            if (!analyzeRes.ok) throw new Error(analyzeData.error || 'Analysis failed');
 
-            setAnalysisData(data);
+            setAnalysisData(analyzeData);
+
+            // Step 2: Extract components (NEW)
+            setLoadingStepIndex(1); // Update loading message
+            const componentsRes = await fetch('/api/wizard/extract-components', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idea,
+                    productName: analyzeData.productName,
+                    category: analyzeData.category
+                })
+            });
+
+            const componentsResult = await componentsRes.json();
+            if (!componentsRes.ok) throw new Error('Component extraction failed');
+
+            setComponentsData(componentsResult);
+
+            // Step 3: Generate initial image (NEW)
+            setLoadingStepIndex(2);
+
+            // Construct prompt
+            const componentDescriptions = componentsResult.components.map((comp: any) => {
+                const features = comp.selectedFeatures?.join(', ') || comp.defaultFeatures?.join(', ');
+                return `${comp.name}: ${comp.selectedMaterial || comp.defaultMaterial}${features ? ` (${features})` : ''}`;
+            }).join(', ');
+
+            const visualDescriptions = componentsResult.visualElements?.map((elem: any) => {
+                return `${elem.name}: ${elem.selectedOption || elem.default}`;
+            }).join(', ');
+
+            const prompt = `
+High-quality professional product photography of a ${analyzeData.productName}.
+Category: ${analyzeData.category}.
+
+Product Details:
+${componentDescriptions}
+
+Visual Style:
+${visualDescriptions}
+
+Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, professional product photography, high detail, 4K quality.
+`;
+
+            const imageRes = await fetch('/api/visualize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+
+            const imageResult = await imageRes.json();
+            if (!imageRes.ok || !imageResult.success) throw new Error(imageResult.error || 'Image generation failed');
+
+            setGeneratedImage(imageResult.image);
+            setImagePrompt(prompt);
+
+            // Move to Visual Configurator (Step 2)
             setStepIndex(2);
+
         } catch (err: any) {
             console.error(err);
-            setError('Failed to analyze your idea. Please try again.');
+            setError(err.message || 'Failed to analyze your idea. Please try again.');
         } finally {
             setLoading(false);
         }
+    }
+
+    async function handleRegenerateImage() {
+        if (!componentsData || !analysisData) return;
+
+        setImageGenerating(true);
+
+        try {
+            // Construct prompt
+            const componentDescriptions = componentsData.components.map((comp: any) => {
+                const features = comp.selectedFeatures?.join(', ') || comp.defaultFeatures?.join(', ');
+                return `${comp.name}: ${comp.selectedMaterial || comp.defaultMaterial}${features ? ` (${features})` : ''}`;
+            }).join(', ');
+
+            const visualDescriptions = componentsData.visualElements?.map((elem: any) => {
+                return `${elem.name}: ${elem.selectedOption || elem.default}`;
+            }).join(', ');
+
+            const prompt = `
+High-quality professional product photography of a ${analysisData.productName}.
+Category: ${analysisData.category}.
+
+Product Details:
+${componentDescriptions}
+
+Visual Style:
+${visualDescriptions}
+
+Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, professional product photography, high detail, 4K quality.
+`;
+
+            const imageRes = await fetch('/api/visualize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+
+            const imageResult = await imageRes.json();
+            if (!imageRes.ok || !imageResult.success) throw new Error(imageResult.error || 'Image regeneration failed');
+
+            setGeneratedImage(imageResult.image);
+            setImagePrompt(prompt);
+
+        } catch (err: any) {
+            console.error(err);
+            setError('Failed to regenerate image. Please try again.');
+        } finally {
+            setImageGenerating(false);
+        }
+    }
+
+    function updateComponent(componentId: string, field: 'selectedMaterial' | 'selectedFeatures', value: any) {
+        if (!componentsData) return;
+
+        const updatedComponents = componentsData.components.map(comp =>
+            comp.id === componentId
+                ? { ...comp, [field]: value }
+                : comp
+        );
+
+        setComponentsData({
+            ...componentsData,
+            components: updatedComponents
+        });
+
+        // Auto-regenerate image after 1 second delay (debounced)
+        setTimeout(() => {
+            handleRegenerateImage();
+        }, 1000);
+    }
+
+    function updateVisualElement(elementId: string, selectedOption: string) {
+        if (!componentsData) return;
+
+        const updatedElements = componentsData.visualElements.map(elem =>
+            elem.id === elementId
+                ? { ...elem, selectedOption }
+                : elem
+        );
+
+        setComponentsData({
+            ...componentsData,
+            visualElements: updatedElements
+        });
+
+        setTimeout(() => {
+            handleRegenerateImage();
+        }, 1000);
     }
 
     async function handleSubmitPlaybook() {
@@ -279,6 +461,8 @@ export default function WizardModal() {
                     differentiationText: selectedSimilarProduct?.reason || '',
                     selectedSimilarProductId: selectedSimilarProductId || undefined,
                     wizardInput: wizardInput, // NEW: Store wizard input
+                    componentSelections: componentsData, // NEW: Save user's component choices
+                    productImage: generatedImage, // NEW: Save final image
                     constraints: derivedConstraints,
                     costEstimate: derivedCostEstimate,
                     free: {
@@ -389,13 +573,13 @@ export default function WizardModal() {
                             <div className="flex items-center gap-6">
                                 <div className="hidden md:flex flex-col items-end gap-1">
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                        Step {stepIndex} of 3
+                                        Step {stepIndex} of 4
                                     </p>
                                     <div className="h-1.5 w-32 bg-slate-100 rounded-full overflow-hidden">
                                         <motion.div
                                             className="h-full bg-sky-500"
                                             initial={{ width: 0 }}
-                                            animate={{ width: `${(stepIndex / 3) * 100}%` }}
+                                            animate={{ width: `${(stepIndex / 4) * 100}%` }}
                                             transition={{ duration: 0.5, ease: "easeInOut" }}
                                         />
                                     </div>
@@ -447,6 +631,79 @@ export default function WizardModal() {
                                             <p className="mt-2 text-xs text-slate-500">
                                                 Example: "A compact charcoal BBQ designed for caravaners with foldable legs and a removable ash catcher."
                                             </p>
+                                        </div>
+
+                                        {/* Components Section */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-lg font-bold text-slate-900">Components</h3>
+
+                                            {componentsData?.components && componentsData.components.length > 0 ? (
+                                                componentsData.components.map((component) => (
+                                                    <div
+                                                        key={component.id}
+                                                        className="bg-white border border-slate-200 rounded-xl p-4 space-y-3"
+                                                    >
+                                                        <h4 className="font-semibold text-slate-900">{component.name}</h4>
+
+                                                        {/* Material Selection */}
+                                                        <div>
+                                                            <label className="text-xs font-medium text-slate-600 uppercase mb-2 block">
+                                                                Material
+                                                            </label>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {component.materialOptions?.map((material) => (
+                                                                    <button
+                                                                        key={material}
+                                                                        onClick={() => updateComponent(component.id, 'selectedMaterial', material)}
+                                                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${(component.selectedMaterial || component.defaultMaterial) === material
+                                                                            ? 'bg-sky-600 text-white shadow-md'
+                                                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                                            }`}
+                                                                    >
+                                                                        {material}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Feature Options */}
+                                                        {component.featureOptions && Object.entries(component.featureOptions).map(([featureName, options]) => (
+                                                            <div key={featureName}>
+                                                                <label className="text-xs font-medium text-slate-600 uppercase mb-2 block">
+                                                                    {featureName}
+                                                                </label>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {(options as string[]).map((option) => {
+                                                                        const isSelected = component.selectedFeatures?.includes(option) ||
+                                                                            component.defaultFeatures?.includes(option);
+
+                                                                        return (
+                                                                            <button
+                                                                                key={option}
+                                                                                onClick={() => {
+                                                                                    const currentFeatures = component.selectedFeatures || component.defaultFeatures || [];
+                                                                                    const newFeatures = isSelected
+                                                                                        ? currentFeatures.filter(f => f !== option)
+                                                                                        : [...currentFeatures, option];
+                                                                                    updateComponent(component.id, 'selectedFeatures', newFeatures);
+                                                                                }}
+                                                                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isSelected
+                                                                                    ? 'bg-emerald-600 text-white shadow-md'
+                                                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                                                    }`}
+                                                                            >
+                                                                                {option}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-slate-500 text-sm">No configurable components found.</p>
+                                            )}
                                         </div>
 
                                         {/* Design Stage */}
@@ -529,8 +786,185 @@ export default function WizardModal() {
                                 </motion.section>
                             )}
 
-                            {/* === STEP 2: CONFIRM === */}
-                            {stepIndex === 2 && analysisData && (
+                            {/* === STEP 2: VISUAL CONFIGURATOR (NEW) === */}
+                            {stepIndex === 2 && componentsData && (
+                                <motion.section
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm max-w-6xl mx-auto"
+                                >
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                                        {/* Left Column: Configurator */}
+                                        <div className="lg:col-span-5 space-y-6">
+                                            <div>
+                                                <h2 className="text-xl font-semibold text-slate-900 mb-2">
+                                                    Customize Your Product
+                                                </h2>
+                                                <p className="text-sm text-slate-500">
+                                                    Adjust materials and features to visualize your product.
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+                                                {/* Components List */}
+                                                {componentsData.components.map((component) => (
+                                                    <div key={component.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                                        <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
+                                                            <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                                                            {component.name}
+                                                        </h4>
+
+                                                        {/* Material */}
+                                                        <div className="mb-4">
+                                                            <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-2 block">
+                                                                Material
+                                                            </label>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {component.materialOptions.map((material) => (
+                                                                    <button
+                                                                        key={material}
+                                                                        onClick={() => updateComponent(component.id, 'selectedMaterial', material)}
+                                                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${(component.selectedMaterial || component.defaultMaterial) === material
+                                                                                ? 'bg-white text-sky-700 border border-sky-200 shadow-sm ring-1 ring-sky-100'
+                                                                                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                                                            }`}
+                                                                    >
+                                                                        {material}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Features */}
+                                                        {component.featureOptions && Object.entries(component.featureOptions).map(([featureName, options]) => (
+                                                            <div key={featureName} className="mb-2">
+                                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-2 block">
+                                                                    {featureName}
+                                                                </label>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {(options as string[]).map((option) => {
+                                                                        const isSelected = component.selectedFeatures?.includes(option) ||
+                                                                            (!component.selectedFeatures && component.defaultFeatures?.includes(option));
+                                                                        return (
+                                                                            <button
+                                                                                key={option}
+                                                                                onClick={() => {
+                                                                                    const currentFeatures = component.selectedFeatures || component.defaultFeatures || [];
+                                                                                    const newFeatures = isSelected
+                                                                                        ? currentFeatures.filter(f => f !== option)
+                                                                                        : [...currentFeatures, option];
+                                                                                    updateComponent(component.id, 'selectedFeatures', newFeatures);
+                                                                                }}
+                                                                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${isSelected
+                                                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm'
+                                                                                        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                                                                    }`}
+                                                                            >
+                                                                                {option}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ))}
+
+                                                {/* Visual Elements */}
+                                                {componentsData.visualElements.length > 0 && (
+                                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                                        <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
+                                                            <span className="text-lg">🎨</span>
+                                                            Visual Style
+                                                        </h4>
+                                                        {componentsData.visualElements.map((element) => (
+                                                            <div key={element.id} className="mb-4 last:mb-0">
+                                                                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-2 block">
+                                                                    {element.name}
+                                                                </label>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {element.options.map((option) => (
+                                                                        <button
+                                                                            key={option}
+                                                                            onClick={() => updateVisualElement(element.id, option)}
+                                                                            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${(element.selectedOption || element.default) === option
+                                                                                    ? 'bg-white text-purple-700 border border-purple-200 shadow-sm ring-1 ring-purple-100'
+                                                                                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                                                                }`}
+                                                                        >
+                                                                            {option}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Right Column: Preview */}
+                                        <div className="lg:col-span-7 flex flex-col">
+                                            <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-xl flex-1 min-h-[400px] relative group">
+                                                {generatedImage ? (
+                                                    <img
+                                                        src={generatedImage}
+                                                        alt="AI Generated Product Preview"
+                                                        className="w-full h-full object-contain bg-slate-900"
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex items-center justify-center text-slate-500">
+                                                        <div className="text-center">
+                                                            <div className="animate-spin text-4xl mb-4">✨</div>
+                                                            <p>Generating visualization...</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Loading Overlay */}
+                                                {imageGenerating && (
+                                                    <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-10 transition-all">
+                                                        <div className="text-center text-white">
+                                                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white mb-3"></div>
+                                                            <p className="text-sm font-medium">Updating preview...</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Actions Overlay */}
+                                                <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={handleRegenerateImage}
+                                                        className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                                                    >
+                                                        🔄 Regenerate
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-6 flex justify-between items-center">
+                                                <button
+                                                    onClick={() => setStepIndex(1)}
+                                                    className="text-slate-500 text-sm hover:text-slate-700 px-4 py-2"
+                                                >
+                                                    ← Back to Idea
+                                                </button>
+                                                <button
+                                                    onClick={() => setStepIndex(3)}
+                                                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500 transition shadow-sm hover:shadow"
+                                                >
+                                                    Looks Good, Continue →
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.section>
+                            )}
+
+                            {/* === STEP 3: CONFIRM (Was Step 2) === */}
+                            {stepIndex === 3 && analysisData && (
                                 <motion.section
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -618,13 +1052,13 @@ export default function WizardModal() {
 
                                     <div className="flex justify-between pt-4 border-t border-slate-100">
                                         <button
-                                            onClick={() => setStepIndex(1)}
+                                            onClick={() => setStepIndex(3)}
                                             className="text-slate-500 text-sm hover:text-slate-700 px-4 py-2"
                                         >
                                             ← Back
                                         </button>
                                         <button
-                                            onClick={() => setStepIndex(3)}
+                                            onClick={() => setStepIndex(4)}
                                             className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500 transition shadow-sm hover:shadow"
                                         >
                                             Next: Manufacturing Approach →
@@ -633,8 +1067,8 @@ export default function WizardModal() {
                                 </motion.section>
                             )}
 
-                            {/* === STEP 3: APPROACH === */}
-                            {stepIndex === 3 && (
+                            {/* === STEP 4: APPROACH (Was Step 3) === */}
+                            {stepIndex === 4 && (
                                 <motion.section
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -758,7 +1192,7 @@ export default function WizardModal() {
 
                                     <div className="flex justify-between pt-4 border-t border-slate-100">
                                         <button
-                                            onClick={() => setStepIndex(2)}
+                                            onClick={() => setStepIndex(3)}
                                             className="text-slate-500 text-sm hover:text-slate-700 px-4 py-2"
                                         >
                                             ← Back

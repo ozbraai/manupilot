@@ -143,7 +143,7 @@ export default function RFQDetailPage() {
 
     return (
         <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 py-12">
-            <div className="max-w-6xl mx-auto px-4">
+            <div className="max-w-7xl mx-auto px-4">
 
                 {/* Back Button */}
                 <button
@@ -237,6 +237,122 @@ export default function RFQDetailPage() {
                         </div>
                         <p className="text-2xl font-bold text-slate-600">{rfqData.targetPrice || 'TBA'}</p>
                         <p className="text-xs text-slate-500 mt-1">Open to competitive proposals</p>
+                    </div>
+                </div>
+
+                {/* === NEW: FACTORY-READY SECTIONS === */}
+
+                {/* 1. Technical Specifications (Dynamic Core) */}
+                {rfqData.specs && rfqData.specs.length > 0 && (
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-900">Technical Specifications</h3>
+                        </div>
+                        <div className="overflow-hidden border border-slate-200 rounded-xl">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                                    <tr>
+                                        <th className="px-4 py-3">Feature / Component</th>
+                                        <th className="px-4 py-3">Specification / Target</th>
+                                        <th className="px-4 py-3">Tolerance / Standard</th>
+                                        <th className="px-4 py-3">Criticality</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {rfqData.specs.map((spec: any, i: number) => (
+                                        <tr key={i} className="bg-white hover:bg-slate-50">
+                                            <td className="px-4 py-3 font-medium text-slate-900">{spec.feature}</td>
+                                            <td className="px-4 py-3 text-slate-600">{spec.spec}</td>
+                                            <td className="px-4 py-3 text-slate-500 text-xs">{spec.tolerance}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${spec.criticality.toLowerCase() === 'high' ? 'bg-red-50 text-red-600' :
+                                                    spec.criticality.toLowerCase() === 'medium' ? 'bg-amber-50 text-amber-600' :
+                                                        'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                    {spec.criticality}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* 2. Commercial & Quality Terms (Fixed Skeleton) */}
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    {/* Commercial Terms */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
+                            Commercial Terms
+                        </h3>
+                        <ul className="space-y-3 text-sm">
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Incoterms:</span>
+                                <span className="font-medium text-slate-900">FOB (Free On Board)</span>
+                            </li>
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Payment:</span>
+                                <span className="font-medium text-slate-900">30% Deposit, 70% Balance</span>
+                            </li>
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Quote Validity:</span>
+                                <span className="font-medium text-slate-900">30 Days</span>
+                            </li>
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Currency:</span>
+                                <span className="font-medium text-slate-900">USD</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* Quality & Packaging */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
+                            Quality & Packaging
+                        </h3>
+                        <ul className="space-y-3 text-sm">
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Inspection Std:</span>
+                                <span className="font-medium text-slate-900">AQL 2.5 Major / 4.0 Minor</span>
+                            </li>
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Drop Test:</span>
+                                <span className="font-medium text-slate-900">ISTA-1A Standard</span>
+                            </li>
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Master Carton:</span>
+                                <span className="font-medium text-slate-900">Double-wall (5-ply)</span>
+                            </li>
+                            <li className="flex justify-between">
+                                <span className="text-slate-500">Markings:</span>
+                                <span className="font-medium text-slate-900">UPC + Made in Country</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                {/* 3. Required Quote Structure */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="text-lg">💰</span>
+                        <h3 className="font-bold text-slate-900">Required Quote Breakdown</h3>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-4">
+                        All quotes must be itemized. Single "all-in" prices will be rejected. Please provide:
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        {['Unit Price (EXW)', 'Packaging Cost', 'FOB Charges', 'Tooling / NRE', 'Sample Cost'].map((item, i) => (
+                            <div key={i} className="bg-white border border-slate-200 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 text-center shadow-sm">
+                                {item}
+                            </div>
+                        ))}
                     </div>
                 </div>
 
@@ -429,6 +545,15 @@ export default function RFQDetailPage() {
                     <div className="mb-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-2xl font-bold text-slate-900">Quotes Received ({quotes.length})</h2>
+                            <button
+                                onClick={() => router.push(`/rfqs/${id}/compare`)}
+                                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 shadow-sm transition-colors"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                </svg>
+                                AI Comparison
+                            </button>
                         </div>
                         <QuotesComparison
                             quotes={quotes}

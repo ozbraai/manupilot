@@ -255,7 +255,7 @@ export default function ProjectSamplesPage() {
                     <p className="text-slate-500 mt-2">Track sampling progress and ensure product quality before mass production.</p>
                 </div>
 
-                <div className="space-y-6 max-w-6xl">
+                <div className="space-y-6 max-w-7xl">
 
                     {/* 1. STATUS TRACKER */}
                     <SampleStatusTracker
