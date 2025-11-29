@@ -73,7 +73,7 @@ export default function QuoteComparisonMatrix({ responses, targetPrice, targetMo
                                     <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                                         <div
                                             className={`h-full rounded-full ${response.ai_analysis.score >= 80 ? 'bg-emerald-500' :
-                                                    response.ai_analysis.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                                response.ai_analysis.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                                                 }`}
                                             style={{ width: `${response.ai_analysis.score}%` }}
                                         />
@@ -105,7 +105,11 @@ export default function QuoteComparisonMatrix({ responses, targetPrice, targetMo
                                             {formatCurrency(price, response.extracted_metrics.currency)}
                                         </span>
                                         {isBest && <Check size={14} className="text-emerald-600" />}
-                                        {isOverTarget && <ArrowUp size={14} className="text-red-500" title="Above Target" />}
+                                        {isOverTarget && (
+                                            <span title="Above Target">
+                                                <ArrowUp size={14} className="text-red-500" />
+                                            </span>
+                                        )}
                                     </div>
                                 </td>
                             );

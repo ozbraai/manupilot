@@ -217,7 +217,7 @@ export default function ProjectSamples({ projectId, playbook }: ProjectSamplesPr
 
             setSamples(samples.map(s => s.id === selectedSampleId ? { ...s, status, notes } : s));
             alert('Evaluation saved successfully!');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving evaluation:', error);
             alert(`Failed to save evaluation: ${error.message || JSON.stringify(error)}`);
         }

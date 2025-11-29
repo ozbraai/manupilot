@@ -56,7 +56,6 @@ export default function ProjectShell({
                     title={title}
                     rfqStatus={rfqStatus}
                     navItems={navItems}
-                    phases={phases}
                 />
             </div>
 
