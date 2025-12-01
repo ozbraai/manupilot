@@ -3,6 +3,14 @@
 import type { PlaybookSnapshot } from './playbook';
 
 // Component analysis for deep understanding
+export type ProjectPhase =
+    | 'planning'
+    | 'supplier_sourcing'
+    | 'sampling'
+    | 'pre_production'
+    | 'production'
+    | 'completed';
+
 export type ComponentAnalysis = {
     name: string;
     material_specification: string;
@@ -193,6 +201,47 @@ export type Project = {
     commercials?: any;
     product_style?: string;
     uniqueness?: string;
+
+    // Progress Tracking Fields
+    specs_confirmed_at?: string | null;
+    selected_supplier_id?: string | null;
+    branding?: {
+        logoConfirmed: boolean;
+        packagingConfirmed: boolean;
+        logoUrl?: string;
+        packagingNotes?: string;
+    };
+    production_order?: {
+        placedAt?: string | null;
+        depositPaidAt?: string | null;
+        productionStartedAt?: string | null;
+        qcStatus?: 'pending' | 'passed' | 'failed';
+        shippedAt?: string | null;
+    };
+    target_launch_date?: string | null;
+
+    // Cost Targets
+    targetUnitCost?: number | null;
+    targetRetailPrice?: number | null;
+    targetMOQ?: number | null;
+
+    // Arrays for progress detection
+    rfqs?: { sentAt: string | null }[];
+    quotes?: { receivedAt: string | null }[];
+    samples?: {
+        requestedAt: string | null;
+        receivedAt: string | null;
+        status: 'pending' | 'approved' | 'rejected' | 'revision_requested';
+    }[];
+    specs?: {
+        materials?: string[];
+        features?: string[];
+        dimensions?: string;
+        weightCapacity?: string;
+        colors?: string[];
+        packaging?: string;
+        targetMarkets?: string[];
+    };
 
     // Timestamps
     created_at: string;

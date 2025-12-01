@@ -343,10 +343,12 @@ Differentiation:
 RULES FOR MANUFACTURING APPROACH & RISKS:
 1. "approach": 3-5 bullets max. Start each with a clear verb (e.g. "Finalise", "Shortlist", "Order", "Sign").
    - IF White Label: Focus on picking catalogue products, ordering samples, checking certifications, negotiating MOQs, branding/packaging.
+   - IF Dropshipping: Focus on supplier vetting (AliExpress/CJ/Zendrop), ordering samples for quality check, setting up Shopify/store, marketing assets, testing ads.
    - IF Hybrid: Focus on modifying existing products, documenting changes, understanding tooling impact, running modified samples.
    - IF Custom: Focus on complete drawings/CAD, NDAs, engineering feedback, prototypes, tooling contracts, certification planning.
 2. "risks": 2-4 bullets max.
    - IF White Label: Risk of over-customising, weak packaging/labelling, reliance on one factory, brand confusion.
+   - IF Dropshipping: Long shipping times, poor quality control, low margins, supplier reliability, difficult returns.
    - IF Hybrid: Risk of underestimating tooling, factories not updating drawings, vendor lock-in.
    - IF Custom: Risk of incomplete drawings, IP/control over tooling, failure to plan for certification, high MOQs.
 3. Tone: Friendly, practical, slightly cautious mentor.
@@ -450,10 +452,10 @@ You MUST generate the "financials" object. Estimate values based on the product 
     - "retailPrice": Typically 3x - 5x the Ex-Works cost.
     - "grossMargin": Calculate as ((Retail - Landed) / Retail) * 100. Aim for 60-70%.
 - "startupCapital":
-    - "tooling":
-        - If "white-label": $0 - $500.
-        - If "custom" & simple: $2,000 - $5,000.
-        - If "custom" & complex: $10,000+.
+    - If "dropshipping": Tooling $0. Focus on samples ($50-$200) and marketing budget.
+    - If "white-label": $0 - $500.
+    - If "custom" & simple: $2,000 - $5,000.
+    - If "custom" & complex: $10,000+.
     - "prototyping": $100 - $2,000 depending on complexity.
     - "totalLaunchBudget": Sum of all startup costs + first batch inventory.
 

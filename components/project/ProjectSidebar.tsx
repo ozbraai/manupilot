@@ -31,7 +31,15 @@ type ProjectSidebarProps = {
   navItems?: NavItem[];
 };
 
-export default function ProjectSidebar({ activeView, onChangeView, title, rfqStatus, navItems: customNavItems }: ProjectSidebarProps) {
+export default function ProjectSidebar({
+  activeView,
+  onChangeView,
+  title,
+  rfqStatus,
+  navItems: customNavItems,
+  projectId,
+  enableRouting = true
+}: ProjectSidebarProps & { projectId?: string; enableRouting?: boolean }) {
 
   const defaultNavItems: NavItem[] = [
     { id: 'overview', label: 'Product Overview', icon: Home },
@@ -50,6 +58,19 @@ export default function ProjectSidebar({ activeView, onChangeView, title, rfqSta
 
   const navItems = customNavItems || defaultNavItems;
 
+  const getHref = (viewId: string) => {
+    if (!projectId) return '#';
+    switch (viewId) {
+      case 'overview': return `/projects/${projectId}`;
+      case 'bom': return `/projects/${projectId}/details`;
+      case 'financials': return `/projects/${projectId}/costs`;
+      case 'sourcing': return `/projects/${projectId}/suppliers`;
+      case 'samples': return `/projects/${projectId}/samples`;
+      case 'roadmap': return `/projects/${projectId}/roadmap`;
+      default: return `/projects/${projectId}`;
+    }
+  };
+
   return (
     <aside className="w-64 bg-white flex flex-col h-full border-r border-slate-200 lg:max-h-full lg:overflow-y-auto font-sans">
       {/* Project Title Header */}
@@ -67,11 +88,43 @@ export default function ProjectSidebar({ activeView, onChangeView, title, rfqSta
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
+          const href = getHref(item.id);
+
+          if (enableRouting && projectId) {
+            return (
+              <Link
+                key={item.id}
+                href={href}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[14px] font-medium rounded-lg transition-all duration-200 group ${isActive
+                  ? 'bg-slate-50 text-slate-900'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <Icon
+                    size={18}
+                    strokeWidth={2}
+                    className={`flex-shrink-0 transition-colors ${isActive
+                      ? 'text-slate-900'
+                      : 'text-slate-400 group-hover:text-slate-600'
+                      }`}
+                  />
+                  <span>{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${item.badgeColor || 'bg-slate-100 text-slate-500'
+                    }`}>
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          }
 
           return (
             <button
               key={item.id}
-              onClick={() => onChangeView(item.id as View)}
+              onClick={() => onChangeView && onChangeView(item.id as View)}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[14px] font-medium rounded-lg transition-all duration-200 group ${isActive
                 ? 'bg-slate-50 text-slate-900'
                 : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'

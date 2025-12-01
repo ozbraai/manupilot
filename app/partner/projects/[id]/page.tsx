@@ -44,6 +44,7 @@ export default function PartnerProjectWorkspace() {
             phases={PARTNER_PHASES}
             activeView={activeView}
             onChangeView={setActiveView}
+            enableRouting={false}
         >
             {/* === OVERVIEW === */}
             {activeView === 'overview' && (
@@ -288,8 +289,8 @@ export default function PartnerProjectWorkspace() {
                             ].map((item, i) => (
                                 <div key={i} className="relative">
                                     <div className={`absolute -left-[29px] w-4 h-4 rounded-full border-2 ${item.status === 'completed' ? 'bg-slate-900 border-slate-900' :
-                                            item.status === 'current' ? 'bg-white border-blue-500 ring-4 ring-blue-50' :
-                                                'bg-white border-slate-300'
+                                        item.status === 'current' ? 'bg-white border-blue-500 ring-4 ring-blue-50' :
+                                            'bg-white border-slate-300'
                                         }`} />
                                     <div className="flex justify-between items-start">
                                         <div>

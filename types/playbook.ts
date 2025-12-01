@@ -2,7 +2,7 @@
 
 import type { UniquenessFactor } from '@/lib/feasibility';
 
-export type SourcingMode = 'white-label' | 'custom' | 'combination' | 'auto';
+export type SourcingMode = 'white-label' | 'custom' | 'combination' | 'dropshipping' | 'auto';
 
 export type SubProductRole = 'core' | 'accessory' | 'packaging' | 'documentation';
 
@@ -72,6 +72,7 @@ export type FreePlaybookContent = {
   financials?: any; // Added financials field
   timeline: string[];
   nextSteps: string[];
+  sourcingMode?: SourcingMode;
 };
 
 export type PlaybookV2 = {
@@ -150,6 +151,14 @@ export type PlaybookV2WithOverrides = PlaybookV2 & {
 export type PlaybookSnapshot = {
   // Original AI baseline (never changes)
   ai_baseline: {
+    summary?: string;
+    targetCustomer?: string;
+    keyFeatures?: string[];
+    materials?: string[];
+    dimensions?: string;
+    weight?: string;
+    colors?: string[];
+
     unitEconomics?: {
       exWorksCost?: string;
       freightCost?: string;

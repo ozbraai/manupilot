@@ -77,7 +77,7 @@ export type FeasibilityFeatures = {
 
   trendDirection: TrendDirection;
   marketMaturity: MarketMaturity;
-  sourcingMode?: "white-label" | "combination" | "custom" | "auto";
+  sourcingMode?: "white-label" | "combination" | "custom" | "dropshipping" | "auto";
   uniquenessFactor?: UniquenessFactor; // NEW FIELD
 };
 

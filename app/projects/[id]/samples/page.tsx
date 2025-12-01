@@ -1,313 +1,145 @@
-'use client';
+import { loadProject } from '@/lib/project-loader';
+import ProjectShell from '@/components/project/ProjectShell';
+import { Camera, CheckCircle2, Clock, Plus, XCircle } from 'lucide-react';
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
-import ProjectSidebar from '@/components/project/ProjectSidebar';
-import SampleStatusTracker from '@/components/samples/SampleStatusTracker';
-import QCChecklist from '@/components/samples/QCChecklist';
-import SamplePhotos from '@/components/samples/SamplePhotos';
-import SampleEvaluation from '@/components/samples/SampleEvaluation';
-import { Sample, SampleQCItem, SamplePhoto, SampleStatus } from '@/types/samples';
-import { PlaybookV2 } from '@/types/playbook';
+export default async function ProjectSamplesPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const project = await loadProject(id);
 
-export default function ProjectSamplesPage() {
-    const params = useParams();
-    const router = useRouter();
-    const id = params?.id as string;
-
-    // State
-    const [loading, setLoading] = useState(true);
-    const [project, setProject] = useState<any>(null);
-    const [playbook, setPlaybook] = useState<PlaybookV2 | null>(null);
-
-    const [samples, setSamples] = useState<Sample[]>([]);
-    const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
-
-    const [qcItems, setQcItems] = useState<SampleQCItem[]>([]);
-    const [loadingQC, setLoadingQC] = useState(false);
-
-    const [photos, setPhotos] = useState<SamplePhoto[]>([]);
-
-    // Mobile sidebar
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-
-    // Derived
-    const selectedSample = samples.find(s => s.id === selectedSampleId);
-
-    // === LOAD DATA ===
-    useEffect(() => {
-        async function loadData() {
-            if (!id) return;
-            setLoading(true);
-
-            try {
-                // 1. Project & Playbook
-                const { data: proj } = await supabase.from('projects').select('*').eq('id', id).single();
-                if (proj) setProject(proj);
-
-                if (typeof window !== 'undefined') {
-                    const storedPlaybookStr = window.localStorage.getItem(`manupilot_playbook_project_${id}`);
-                    if (storedPlaybookStr) {
-                        const parsed = JSON.parse(storedPlaybookStr);
-                        if (parsed.free) setPlaybook(parsed as PlaybookV2);
-                    }
-                }
-
-                // 2. Samples
-                const { data: samplesData } = await supabase
-                    .from('samples')
-                    .select('*')
-                    .eq('project_id', id)
-                    .order('created_at', { ascending: true });
-
-                if (samplesData) {
-                    setSamples(samplesData as Sample[]);
-                    if (samplesData.length > 0) {
-                        setSelectedSampleId(samplesData[0].id);
-                    }
-                }
-
-            } catch (error) {
-                console.error('Error loading samples page:', error);
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadData();
-    }, [id]);
-
-    // === LOAD SAMPLE DETAILS ===
-    useEffect(() => {
-        async function loadSampleDetails() {
-            if (!selectedSampleId) {
-                setQcItems([]);
-                setPhotos([]);
-                return;
-            }
-
-            setLoadingQC(true);
-            try {
-                // QC Items
-                const { data: qc } = await supabase
-                    .from('sample_qc')
-                    .select('*')
-                    .eq('sample_id', selectedSampleId)
-                    .order('created_at', { ascending: true });
-
-                setQcItems(qc as SampleQCItem[] || []);
-
-                // Photos
-                const { data: ph } = await supabase
-                    .from('sample_photos')
-                    .select('*')
-                    .eq('sample_id', selectedSampleId)
-                    .order('created_at', { ascending: false });
-
-                setPhotos(ph as SamplePhoto[] || []);
-
-            } catch (error) {
-                console.error('Error loading sample details:', error);
-            } finally {
-                setLoadingQC(false);
-            }
-        }
-
-        loadSampleDetails();
-    }, [selectedSampleId]);
-
-    // === HANDLERS ===
-
-    async function handleCreateSample() {
-        if (!id) return;
-        const nextNum = samples.length + 1;
-        const sampleNum = `T${nextNum}`;
-
-        try {
-            const { data: newSample, error } = await supabase
-                .from('samples')
-                .insert({
-                    project_id: id,
-                    sample_number: sampleNum,
-                    status: 'requested',
-                    requested_at: new Date().toISOString()
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
-            if (newSample) {
-                setSamples([...samples, newSample as Sample]);
-                setSelectedSampleId(newSample.id);
-            }
-        } catch (error) {
-            console.error('Error creating sample:', error);
-            alert('Failed to create sample.');
-        }
+    if (!project) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">Project not found</div>;
     }
-
-    async function handleUpdateStatus(status: SampleStatus) {
-        if (!selectedSampleId) return;
-
-        const updates: any = { status };
-        if (status === 'received') updates.received_at = new Date().toISOString();
-        if (status === 'approved' || status === 'revision_required') updates.evaluated_at = new Date().toISOString();
-
-        try {
-            const { error } = await supabase
-                .from('samples')
-                .update(updates)
-                .eq('id', selectedSampleId);
-
-            if (error) throw error;
-
-            // Update local state
-            setSamples(samples.map(s => s.id === selectedSampleId ? { ...s, ...updates } : s));
-        } catch (error) {
-            console.error('Error updating status:', error);
-        }
-    }
-
-    async function handleGenerateQC() {
-        if (!selectedSampleId || !playbook) return;
-        setLoadingQC(true);
-        try {
-            const res = await fetch('/api/qc/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectId: id,
-                    sampleId: selectedSampleId,
-                    playbook
-                })
-            });
-            const data = await res.json();
-            if (data.items) {
-                setQcItems(data.items);
-            }
-        } catch (error) {
-            console.error('Error generating QC:', error);
-            alert('Failed to generate QC checklist.');
-        } finally {
-            setLoadingQC(false);
-        }
-    }
-
-    async function handleToggleQC(itemId: string, result: 'pass' | 'fail' | 'not_checked') {
-        // Optimistic update
-        setQcItems(qcItems.map(i => i.id === itemId ? { ...i, result } : i));
-
-        await supabase
-            .from('sample_qc')
-            .update({ result })
-            .eq('id', itemId);
-    }
-
-    async function handleEvaluation(status: SampleStatus, notes: string) {
-        if (!selectedSampleId) return;
-        try {
-            const { error } = await supabase
-                .from('samples')
-                .update({ status, notes, evaluated_at: new Date().toISOString() })
-                .eq('id', selectedSampleId);
-
-            if (error) throw error;
-
-            setSamples(samples.map(s => s.id === selectedSampleId ? { ...s, status, notes } : s));
-        } catch (error) {
-            console.error('Error saving evaluation:', error);
-            alert('Failed to save evaluation.');
-        }
-    }
-
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">Loading Samples...</div>;
 
     return (
-        <div className="min-h-screen bg-slate-50/50 flex">
+        <ProjectShell
+            projectId={project.id}
+            title={project.title}
+            activeView="samples"
+        >
+            <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-            {/* Mobile Overlay */}
-            {sidebarOpen && (
-                <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-            )}
+                {/* Header */}
+                <div className="flex justify-between items-end">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">Samples & Quality</h1>
+                        <p className="text-slate-500">Track samples and manage quality inspections.</p>
+                    </div>
+                    <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">
+                        <Plus className="w-4 h-4" />
+                        Request Sample
+                    </button>
+                </div>
 
-            {/* Sidebar */}
-            <div className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:sticky lg:top-16 lg:inset-y-auto lg:h-[calc(100vh-4rem)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                <ProjectSidebar
-                    activeView="samples" // We need to update Sidebar to accept this or map it
-                    onChangeView={(view) => {
-                        if (view !== 'samples') router.push(`/projects/${id}`);
-                        setSidebarOpen(false);
-                    }}
-                    title={project?.title}
-                />
+                {/* 1. SAMPLE TRACKING */}
+                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                        <h2 className="font-bold text-slate-900">Sample History</h2>
+                    </div>
+
+                    <div className="divide-y divide-slate-100">
+                        {/* Sample Item */}
+                        <div className="p-6 flex flex-col md:flex-row gap-6">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                        V1
+                                    </span>
+                                    <h3 className="font-bold text-slate-900">Initial Prototype</h3>
+                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> In Transit
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-500 mb-4">
+                                    Sent via DHL (Tracking: #123456789). Expected delivery: Oct 24.
+                                </p>
+                                <div className="flex gap-4 text-xs text-slate-400">
+                                    <span>Requested: Oct 10</span>
+                                    <span>Shipped: Oct 15</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2 min-w-[200px]">
+                                <button className="w-full py-2 px-4 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors">
+                                    Mark as Received
+                                </button>
+                                <button className="w-full py-2 px-4 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+                                    View Tracking
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. QUALITY CHECKLIST */}
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900">Quality Checklist</h2>
+                            <p className="text-sm text-slate-500">Verify these points when reviewing the sample.</p>
+                        </div>
+                        <span className="text-xs font-medium text-slate-400">
+                            0/5 Checked
+                        </span>
+                    </div>
+
+                    <div className="space-y-3">
+                        {[
+                            "Check overall dimensions match specs",
+                            "Verify material finish and color",
+                            "Test weight capacity/durability",
+                            "Inspect logo placement and quality",
+                            "Check packaging condition"
+                        ].map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group">
+                                <div className="mt-0.5 w-5 h-5 rounded border border-slate-300 flex items-center justify-center group-hover:border-slate-400 bg-white">
+                                    {/* Checkbox state would go here */}
+                                </div>
+                                <span className="text-sm text-slate-700">{item}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 3. PHOTO DOCUMENTATION */}
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900">Photo Documentation</h2>
+                            <p className="text-sm text-slate-500">Upload photos of issues or approved details.</p>
+                        </div>
+                        <button className="text-sm font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                            <Camera className="w-4 h-4" /> Add Photos
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="aspect-square bg-slate-50 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-slate-300 hover:text-slate-500 transition-colors cursor-pointer">
+                            <Plus className="w-6 h-6 mb-2" />
+                            <span className="text-xs font-medium">Upload</span>
+                        </div>
+                        {/* Placeholder for uploaded images */}
+                    </div>
+                </div>
+
+                {/* 4. FINAL EVALUATION */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                    <h2 className="font-bold text-slate-900 mb-4">Final Evaluation</h2>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <button className="flex-1 py-3 px-4 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-5 h-5" />
+                            Approve Sample
+                        </button>
+                        <button className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-700 rounded-lg font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                            <XCircle className="w-5 h-5" />
+                            Request Revision
+                        </button>
+                    </div>
+                    <p className="text-xs text-slate-500 text-center mt-3">
+                        Approving will move the project to the Pre-Production phase.
+                    </p>
+                </div>
+
             </div>
-
-            {/* Main Content */}
-            <main className="flex-1 w-full p-4 md:p-8 lg:p-12">
-
-                {/* Mobile Hamburger */}
-                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-white border border-zinc-200 rounded-lg shadow-sm">
-                    <svg className="w-6 h-6 text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                </button>
-
-                <div className="mb-8 mt-12 lg:mt-0">
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Samples & Quality Checks</h1>
-                    <p className="text-slate-500 mt-2">Track sampling progress and ensure product quality before mass production.</p>
-                </div>
-
-                <div className="space-y-6 max-w-7xl">
-
-                    {/* 1. STATUS TRACKER */}
-                    <SampleStatusTracker
-                        samples={samples}
-                        selectedSampleId={selectedSampleId}
-                        onSelectSample={setSelectedSampleId}
-                        onCreateSample={handleCreateSample}
-                        onUpdateStatus={handleUpdateStatus}
-                    />
-
-                    {selectedSampleId ? (
-                        <div className="grid lg:grid-cols-2 gap-6">
-
-                            {/* 2. QC CHECKLIST */}
-                            <div className="lg:row-span-2">
-                                <QCChecklist
-                                    items={qcItems}
-                                    loading={loadingQC}
-                                    onToggleItem={handleToggleQC}
-                                    onGenerate={handleGenerateQC}
-                                />
-                            </div>
-
-                            {/* 3. PHOTOS */}
-                            <div className="min-h-[300px]">
-                                <SamplePhotos
-                                    sampleId={selectedSampleId}
-                                    photos={photos}
-                                    onPhotoUploaded={(photo) => setPhotos([photo, ...photos])}
-                                />
-                            </div>
-
-                            {/* 4. EVALUATION */}
-                            <div className="min-h-[300px]">
-                                {selectedSample && (
-                                    <SampleEvaluation
-                                        sample={selectedSample}
-                                        onUpdate={handleEvaluation}
-                                    />
-                                )}
-                            </div>
-
-                        </div>
-                    ) : (
-                        <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
-                            <p className="text-slate-400">Create a sample to get started.</p>
-                        </div>
-                    )}
-
-                </div>
-
-            </main>
-        </div>
+        </ProjectShell>
     );
 }

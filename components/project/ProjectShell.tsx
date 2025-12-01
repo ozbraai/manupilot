@@ -10,12 +10,15 @@ type ProjectShellProps = {
     navItems?: any[];
     phases?: any[];
     activeView: string;
-    onChangeView: (view: any) => void;
+    onChangeView?: (view: any) => void;
     children: React.ReactNode;
     headerActions?: React.ReactNode;
     rfqStatus?: 'draft' | 'submitted' | 'in_review' | 'completed';
     projectImage?: string;
     progress?: number;
+    hideHeader?: boolean;
+    projectId?: string;
+    enableRouting?: boolean;
 };
 
 export default function ProjectShell({
@@ -30,7 +33,10 @@ export default function ProjectShell({
     headerActions,
     rfqStatus,
     projectImage,
-    progress
+    progress,
+    hideHeader = false,
+    projectId,
+    enableRouting = true
 }: ProjectShellProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -50,12 +56,14 @@ export default function ProjectShell({
                 <ProjectSidebar
                     activeView={activeView}
                     onChangeView={(view) => {
-                        onChangeView(view);
+                        if (onChangeView) onChangeView(view);
                         setSidebarOpen(false);
                     }}
                     title={title}
                     rfqStatus={rfqStatus}
                     navItems={navItems}
+                    projectId={projectId}
+                    enableRouting={enableRouting}
                 />
             </div>
 
@@ -73,57 +81,59 @@ export default function ProjectShell({
                 </button>
 
                 {/* Top Header */}
-                <div className="mb-10 mt-12 lg:mt-0">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
-                        <div className="flex items-start gap-4 flex-1">
-                            {/* Thumbnail */}
-                            {projectImage && (
-                                <div className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-900 shadow-sm">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={projectImage}
-                                        alt={`${title} thumbnail`}
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                            )}
-                            <div className="flex-1">
-                                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">{title}</h1>
-                                {subtitle && <p className="text-slate-500 mt-2 text-sm md:text-base">{subtitle}</p>}
+                {!hideHeader && (
+                    <div className="mb-10 mt-12 lg:mt-0">
+                        <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
+                            <div className="flex items-start gap-4 flex-1">
+                                {/* Thumbnail */}
+                                {projectImage && (
+                                    <div className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-900 shadow-sm">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={projectImage}
+                                            alt={`${title} thumbnail`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                )}
+                                <div className="flex-1">
+                                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight">{title}</h1>
+                                    {subtitle && <p className="text-slate-500 mt-2 text-sm md:text-base">{subtitle}</p>}
 
-                                {badges && badges.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-3">
-                                        {badges.map((badge, idx) => (
-                                            <span
-                                                key={idx}
-                                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${badge.color || 'bg-slate-100 text-slate-600 border-slate-200'}`}
-                                            >
-                                                {badge.label}{badge.value ? `: ${badge.value}` : ''}
-                                            </span>
-                                        ))}
+                                    {badges && badges.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-3">
+                                            {badges.map((badge, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${badge.color || 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                                                >
+                                                    {badge.label}{badge.value ? `: ${badge.value}` : ''}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col md:flex-row gap-3 md:items-end">
+                                {headerActions}
+
+                                {progress !== undefined && (
+                                    <div className="text-left md:text-right">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Progress</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-full md:w-48 h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                                <div className="h-full bg-slate-900 transition-all duration-500" style={{ width: `${progress}%` }} />
+                                            </div>
+                                            <span className="text-lg font-bold text-slate-900">{progress}%</span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         </div>
-
-                        <div className="flex flex-col md:flex-row gap-3 md:items-end">
-                            {headerActions}
-
-                            {progress !== undefined && (
-                                <div className="text-left md:text-right">
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Progress</p>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-full md:w-48 h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                                            <div className="h-full bg-slate-900 transition-all duration-500" style={{ width: `${progress}%` }} />
-                                        </div>
-                                        <span className="text-lg font-bold text-slate-900">{progress}%</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <div className="h-px bg-slate-200 w-full" />
                     </div>
-                    <div className="h-px bg-slate-200 w-full" />
-                </div>
+                )}
 
                 {/* CONTENT */}
                 {children}

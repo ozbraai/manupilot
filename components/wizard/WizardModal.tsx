@@ -121,6 +121,13 @@ export default function WizardModal() {
     const [sourcingMode, setSourcingMode] = useState<SourcingMode | null>(null);
     const [uniquenessFactor, setUniquenessFactor] = useState<UniquenessFactor | null>(null);
 
+    // Dropshipping specific questions
+    const [dropshippingAnswers, setDropshippingAnswers] = useState({
+        targetRegion: '',
+        monthlyVolume: '',
+        nicheFocus: ''
+    });
+
     // UI State
     const [loading, setLoading] = useState(false);
     const [loadingStepIndex, setLoadingStepIndex] = useState(0); // For cycling text
@@ -173,6 +180,7 @@ export default function WizardModal() {
 
         const validOptions: Record<string, string[]> = {
             'white-label': ['branding_only', 'light_improvements'],
+            'dropshipping': ['branding_only', 'light_improvements'],
             'custom': ['moderate_innovation', 'highly_unique', 'category_creating'],
             'combination': ['branding_only', 'light_improvements', 'moderate_innovation', 'highly_unique', 'category_creating']
         };
@@ -187,6 +195,7 @@ export default function WizardModal() {
             } else {
                 // Fallback defaults
                 if (sourcingMode === 'white-label') setUniquenessFactor('branding_only');
+                if (sourcingMode === 'dropshipping') setUniquenessFactor('branding_only');
                 if (sourcingMode === 'custom') setUniquenessFactor('highly_unique');
                 if (sourcingMode === 'combination') setUniquenessFactor('moderate_innovation');
             }
@@ -408,10 +417,20 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
 
                     // Empty/Default legacy fields to satisfy type if needed (though API handles optionals)
                     componentsInfo: null,
-                    questions: [],
-                    answers: {},
                     constraints: {},
-                    costEstimate: null
+                    costEstimate: null,
+
+                    // Dropshipping specific data (optional)
+                    questions: sourcingMode === 'dropshipping' ? [
+                        { key: 'targetRegion', label: 'Target Region', title: 'Target Region', helper: '', placeholder: '' },
+                        { key: 'monthlyVolume', label: 'Monthly Volume', title: 'Monthly Volume', helper: '', placeholder: '' },
+                        { key: 'nicheFocus', label: 'Niche Focus', title: 'Niche Focus', helper: '', placeholder: '' }
+                    ] : [],
+                    answers: sourcingMode === 'dropshipping' ? {
+                        targetRegion: dropshippingAnswers.targetRegion,
+                        monthlyVolume: dropshippingAnswers.monthlyVolume,
+                        nicheFocus: dropshippingAnswers.nicheFocus
+                    } : {}
                 })
             });
 
@@ -633,78 +652,7 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
                                             </p>
                                         </div>
 
-                                        {/* Components Section */}
-                                        <div className="space-y-4">
-                                            <h3 className="text-lg font-bold text-slate-900">Components</h3>
 
-                                            {componentsData?.components && componentsData.components.length > 0 ? (
-                                                componentsData.components.map((component) => (
-                                                    <div
-                                                        key={component.id}
-                                                        className="bg-white border border-slate-200 rounded-xl p-4 space-y-3"
-                                                    >
-                                                        <h4 className="font-semibold text-slate-900">{component.name}</h4>
-
-                                                        {/* Material Selection */}
-                                                        <div>
-                                                            <label className="text-xs font-medium text-slate-600 uppercase mb-2 block">
-                                                                Material
-                                                            </label>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {component.materialOptions?.map((material) => (
-                                                                    <button
-                                                                        key={material}
-                                                                        onClick={() => updateComponent(component.id, 'selectedMaterial', material)}
-                                                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${(component.selectedMaterial || component.defaultMaterial) === material
-                                                                            ? 'bg-sky-600 text-white shadow-md'
-                                                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                                                            }`}
-                                                                    >
-                                                                        {material}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Feature Options */}
-                                                        {component.featureOptions && Object.entries(component.featureOptions).map(([featureName, options]) => (
-                                                            <div key={featureName}>
-                                                                <label className="text-xs font-medium text-slate-600 uppercase mb-2 block">
-                                                                    {featureName}
-                                                                </label>
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {(options as string[]).map((option) => {
-                                                                        const isSelected = component.selectedFeatures?.includes(option) ||
-                                                                            component.defaultFeatures?.includes(option);
-
-                                                                        return (
-                                                                            <button
-                                                                                key={option}
-                                                                                onClick={() => {
-                                                                                    const currentFeatures = component.selectedFeatures || component.defaultFeatures || [];
-                                                                                    const newFeatures = isSelected
-                                                                                        ? currentFeatures.filter(f => f !== option)
-                                                                                        : [...currentFeatures, option];
-                                                                                    updateComponent(component.id, 'selectedFeatures', newFeatures);
-                                                                                }}
-                                                                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isSelected
-                                                                                    ? 'bg-emerald-600 text-white shadow-md'
-                                                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                                                                    }`}
-                                                                            >
-                                                                                {option}
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <p className="text-slate-500 text-sm">No configurable components found.</p>
-                                            )}
-                                        </div>
 
                                         {/* Design Stage */}
                                         <div>
@@ -827,8 +775,8 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
                                                                         key={material}
                                                                         onClick={() => updateComponent(component.id, 'selectedMaterial', material)}
                                                                         className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${(component.selectedMaterial || component.defaultMaterial) === material
-                                                                                ? 'bg-white text-sky-700 border border-sky-200 shadow-sm ring-1 ring-sky-100'
-                                                                                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                                                            ? 'bg-white text-sky-700 border border-sky-200 shadow-sm ring-1 ring-sky-100'
+                                                                            : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
                                                                             }`}
                                                                     >
                                                                         {material}
@@ -858,8 +806,8 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
                                                                                     updateComponent(component.id, 'selectedFeatures', newFeatures);
                                                                                 }}
                                                                                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${isSelected
-                                                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm'
-                                                                                        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm'
+                                                                                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
                                                                                     }`}
                                                                             >
                                                                                 {option}
@@ -890,8 +838,8 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
                                                                             key={option}
                                                                             onClick={() => updateVisualElement(element.id, option)}
                                                                             className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${(element.selectedOption || element.default) === option
-                                                                                    ? 'bg-white text-purple-700 border border-purple-200 shadow-sm ring-1 ring-purple-100'
-                                                                                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                                                                ? 'bg-white text-purple-700 border border-purple-200 shadow-sm ring-1 ring-purple-100'
+                                                                                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
                                                                                 }`}
                                                                         >
                                                                             {option}
@@ -1152,6 +1100,26 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
                                                 <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">Recommended</span>
                                             )}
                                         </div>
+
+                                        {/* Dropshipping (New) */}
+                                        <div
+                                            onClick={() => setSourcingMode('dropshipping')}
+                                            className={`cursor-pointer rounded-xl border p-5 transition relative ${sourcingMode === 'dropshipping'
+                                                ? 'border-orange-500 ring-1 ring-orange-500 bg-orange-50/30'
+                                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                }`}
+                                        >
+                                            <div className="text-2xl mb-3">📦</div>
+                                            <h3 className="font-semibold text-slate-900 mb-2">Dropshipping</h3>
+                                            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                                                Sell without holding inventory. Best for testing markets.
+                                            </p>
+                                            <ul className="text-[11px] text-slate-500 space-y-1 list-disc pl-3">
+                                                <li>No upfront inventory</li>
+                                                <li>No MOQ</li>
+                                                <li>Fastest setup</li>
+                                            </ul>
+                                        </div>
                                     </div>
 
                                     {/* Uniqueness Factor Selection */}
@@ -1168,7 +1136,7 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
                                                 { id: 'category_creating', label: 'Category-Creating' }
                                             ].filter(option => {
                                                 if (!sourcingMode) return true;
-                                                if (sourcingMode === 'white-label') {
+                                                if (sourcingMode === 'white-label' || sourcingMode === 'dropshipping') {
                                                     return ['branding_only', 'light_improvements'].includes(option.id);
                                                 }
                                                 if (sourcingMode === 'custom') {
@@ -1199,13 +1167,61 @@ Style: Clean studio lighting, white background, 3/4 angle view, photorealistic, 
                                         </button>
                                         <button
                                             onClick={handleSubmitPlaybook}
-                                            disabled={!sourcingMode || !uniquenessFactor}
+                                            disabled={!sourcingMode || !uniquenessFactor || (sourcingMode === 'dropshipping' && (!dropshippingAnswers.targetRegion || !dropshippingAnswers.monthlyVolume))}
                                             className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-sky-600 text-white text-sm font-medium hover:bg-sky-500 transition shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             Generate Playbook ✨
                                         </button>
                                     </div>
                                 </motion.section>
+                            )}
+
+                            {/* Dropshipping Specific Questions */}
+                            {sourcingMode === 'dropshipping' && stepIndex === 4 && (
+                                <div className="mb-8 animate-in fade-in slide-in-from-top-2 duration-300 bg-orange-50/50 border border-orange-100 rounded-xl p-5 mt-4">
+                                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                                        <span className="text-lg">📦</span> Dropshipping Details
+                                    </h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-700 mb-1">Target Region</label>
+                                            <select
+                                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                                value={dropshippingAnswers.targetRegion}
+                                                onChange={(e) => setDropshippingAnswers({ ...dropshippingAnswers, targetRegion: e.target.value })}
+                                            >
+                                                <option value="">Select Region...</option>
+                                                <option value="USA">USA</option>
+                                                <option value="Europe">Europe</option>
+                                                <option value="Global">Global</option>
+                                                <option value="Australia">Australia</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-700 mb-1">Expected Monthly Volume</label>
+                                            <select
+                                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                                value={dropshippingAnswers.monthlyVolume}
+                                                onChange={(e) => setDropshippingAnswers({ ...dropshippingAnswers, monthlyVolume: e.target.value })}
+                                            >
+                                                <option value="">Select Volume...</option>
+                                                <option value="Testing (0-50)">Testing (0-50)</option>
+                                                <option value="Growing (50-500)">Growing (50-500)</option>
+                                                <option value="Scale (500+)">Scale (500+)</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-xs font-medium text-slate-700 mb-1">Niche / Category Focus</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Eco-friendly home goods, Tech accessories..."
+                                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                                value={dropshippingAnswers.nicheFocus}
+                                                onChange={(e) => setDropshippingAnswers({ ...dropshippingAnswers, nicheFocus: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             )}
 
                         </div>
